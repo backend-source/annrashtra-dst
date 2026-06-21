@@ -3,6 +3,7 @@ import { withTransaction } from '../config/db.js';
 import { POINTS } from '../config/points.js';
 import * as leadsRepo from '../repositories/leads.repo.js';
 import * as pointsRepo from '../repositories/points.repo.js';
+import * as outboxRepo from '../repositories/outbox.repo.js';
 
 const VERIFY_STATUSES = new Set(['unverified', 'whatsapp_confirmed', 'otp_verified']);
 const VERIFIED = new Set(['whatsapp_confirmed', 'otp_verified']);
@@ -42,9 +43,31 @@ export async function captureManualLead(input) {
     client_uuid: input.client_uuid,
   });
 
-  // TODO (phase 3): enqueue an outbox_messages WhatsApp confirmation; on delivery
-  // webhook, set verify_status = 'whatsapp_confirmed' and award promoter_points.
+  // Enqueue the WhatsApp confirmation (sent later by the outbox worker). On a
+  // successful send the worker calls confirmLeadByWhatsapp() to move the lead to
+  // 'whatsapp_confirmed' and award points. dedupe_key makes the enqueue idempotent.
+  await outboxRepo.enqueue(null, {
+    channel: 'whatsapp',
+    to_mobile: lead.mobile,
+    template: 'lead_confirmation',
+    payload: { name: lead.name, lead_id: lead.id },
+    lead_id: lead.id,
+    dedupe_key: `lead_confirm:${lead.id}`,
+  });
   return lead;
+}
+
+// Called by the outbox worker when a lead-confirmation WhatsApp send succeeds.
+// Manual leads start 'unverified' and are confirmed here (never blocked on this).
+// Idempotent: only the first transition out of 'unverified' awards points.
+export async function confirmLeadByWhatsapp(client, leadId) {
+  const lead = await leadsRepo.getByIdForUpdate(client, leadId);
+  if (!lead || lead.verify_status !== 'unverified') return false;
+  await leadsRepo.updateState(client, leadId, { verify_status: 'whatsapp_confirmed' });
+  await pointsRepo.awardForLead(client, {
+    promoter_id: lead.promoter_id, points: POINTS.lead_verified, reason: 'lead_verified', lead_id: leadId,
+  });
+  return true;
 }
 
 export function listLeads(user) {

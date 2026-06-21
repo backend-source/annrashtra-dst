@@ -73,7 +73,7 @@ const { token, user } = await login(PROMOTER);
 const pid = user.id;
 
 // ---- make the run repeatable: clear this promoter's data for today ----
-await db.query(`DELETE FROM outbox_messages WHERE sale_id IN (SELECT id FROM sales WHERE promoter_id=$1) OR lead_id IN (SELECT id FROM leads WHERE promoter_id=$1)`, [pid]);
+await db.query(`DELETE FROM outbox_messages WHERE sale_id IN (SELECT id FROM sales WHERE promoter_id=$1) OR lead_id IN (SELECT id FROM leads WHERE promoter_id=$1) OR dedupe_key LIKE 'testfail:%'`, [pid]);
 await db.query(`DELETE FROM refill_requests WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM stock_transactions WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM promoter_points WHERE promoter_id=$1`, [pid]);
@@ -221,6 +221,48 @@ assert('admin edits price -> 799', priceEdit.status === 200 && Number(priceEdit.
 const badPrice = await patch(`/api/products/${product2.id}`, { price: 999 }, token);
 assert('promoter price edit forbidden (403)', badPrice.status === 403, `status=${badPrice.status}`);
 await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // restore
+
+// ---- (phase 3) outbox sender: invoice + lead confirmation, retry, idempotency ----
+// a fresh unverified lead -> enqueues a 'lead_confirmation' message
+const freshUuid = randomUUID();
+const freshMobile = '76000' + String(Date.now()).slice(-6);
+const fresh = await post('/api/leads', { client_uuid: freshUuid, mobile: freshMobile, name: 'Outbox Lead' }, token);
+assert('fresh lead created unverified', fresh.status === 201 && fresh.body.verify_status === 'unverified', `status=${fresh.status}`);
+const qLead = (await db.query(`SELECT status FROM outbox_messages WHERE lead_id=$1 AND template='lead_confirmation'`, [fresh.body.id])).rows[0];
+assert('lead confirmation queued', !!qLead && qLead.status === 'queued', `status=${qLead?.status}`);
+
+// a message that will fail (sentinel number) to exercise the retry path
+await db.query(
+  `INSERT INTO outbox_messages (channel, to_mobile, template, dedupe_key) VALUES ('whatsapp','0000000000','sale_invoice',$1)`,
+  [`testfail:${freshUuid}`],
+);
+
+// admin triggers a processing pass
+const proc = await post('/api/outbox/process', {}, admin.token);
+assert('outbox process ran', proc.status === 200 && proc.body.processed >= 2, `processed=${proc.body.processed} sent=${proc.body.sent} failed=${proc.body.failed}`);
+
+// invoice (from the earlier sale) is now sent with a provider id
+const invMsg = (await db.query(`SELECT status, provider_msg_id FROM outbox_messages WHERE sale_id=$1`, [sale1.body.id])).rows[0];
+assert('invoice marked sent', invMsg.status === 'sent' && !!invMsg.provider_msg_id, `status=${invMsg.status}`);
+
+// lead confirmation sent -> lead auto-confirmed + points awarded by the worker
+const lcMsg = (await db.query(`SELECT status FROM outbox_messages WHERE lead_id=$1 AND template='lead_confirmation'`, [fresh.body.id])).rows[0];
+assert('lead confirmation sent', lcMsg.status === 'sent', `status=${lcMsg.status}`);
+const freshLeadRow = (await db.query(`SELECT verify_status FROM leads WHERE id=$1`, [fresh.body.id])).rows[0];
+assert('lead auto-confirmed via whatsapp', freshLeadRow.verify_status === 'whatsapp_confirmed', `verify=${freshLeadRow.verify_status}`);
+const freshPts = (await db.query(`SELECT count(*)::int n FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [fresh.body.id])).rows[0];
+assert('worker awarded verify points once', freshPts.n === 1, `n=${freshPts.n}`);
+
+// failure path: sentinel message is 'failed' with an incremented attempt
+const failMsg = (await db.query(`SELECT status, attempts FROM outbox_messages WHERE dedupe_key=$1`, [`testfail:${freshUuid}`])).rows[0];
+assert('failed message recorded (attempts=1)', failMsg.status === 'failed' && failMsg.attempts === 1, `status=${failMsg.status} attempts=${failMsg.attempts}`);
+
+// idempotent: a second pass does not re-send already-sent messages or double-award
+const proc2 = await post('/api/outbox/process', {}, admin.token);
+const freshPts2 = (await db.query(`SELECT count(*)::int n FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [fresh.body.id])).rows[0];
+assert('second pass: no double points', freshPts2.n === 1, `n=${freshPts2.n}`);
+const failMsg2 = (await db.query(`SELECT attempts FROM outbox_messages WHERE dedupe_key=$1`, [`testfail:${freshUuid}`])).rows[0];
+assert('second pass: failed msg retried (attempts=2)', failMsg2.attempts === 2, `attempts=${failMsg2.attempts}`);
 
 await db.end();
 console.log('\n' + results.join('\n'));

@@ -9,7 +9,8 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "migrate": "node scripts/db-migrate.js",
-    "seed": "node scripts/seed-dev.js"
+    "seed": "node scripts/seed-dev.js",
+    "worker": "node scripts/outbox-worker.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

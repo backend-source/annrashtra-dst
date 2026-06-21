@@ -5,6 +5,7 @@ import salesRoutes from './sales.routes.js';
 import attendanceRoutes from './attendance.routes.js';
 import inventoryRoutes from './inventory.routes.js';
 import productsRoutes from './products.routes.js';
+import outboxRoutes from './outbox.routes.js';
 import { auditWrites } from '../middleware/audit.js';
 
 const router = Router();
@@ -18,5 +19,6 @@ router.use('/sales', salesRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/products', productsRoutes);
+router.use('/outbox', outboxRoutes);
 
 export default router;
