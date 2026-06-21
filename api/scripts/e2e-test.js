@@ -222,6 +222,10 @@ const badPrice = await patch(`/api/products/${product2.id}`, { price: 999 }, tok
 assert('promoter price edit forbidden (403)', badPrice.status === 403, `status=${badPrice.status}`);
 await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // restore
 
+// promoter's assigned locations (used by the mobile attendance screen)
+const locs = await get('/api/locations', token);
+assert('promoter locations list includes Test Park', Array.isArray(locs.body) && locs.body.some((l) => l.id === loc.id), `n=${locs.body?.length}`);
+
 // ---- (phase 3) outbox sender: invoice + lead confirmation, retry, idempotency ----
 // a fresh unverified lead -> enqueues a 'lead_confirmation' message
 const freshUuid = randomUUID();
