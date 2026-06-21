@@ -1,0 +1,64 @@
+# Annrashtra DST — Schema Review & Implementation Plan
+
+> Status: planning artifact only. No application code yet.
+> Source of truth for the current DB is the original `schema.sql`; proposed changes
+> live in `db/schema_v2.sql` as an additive migration.
+
+## A. Schema gaps vs. the stated key rules
+
+Rules in `CLAUDE.md` that the original schema cannot enforce or record:
+
+| Rule | Status | Gap |
+|---|---|---|
+| "Promoter rewards/points count only verified or converted leads" | Missing | No points/rewards/targets table. Nothing records what a promoter earned or the rule that gates it. |
+| "Every write is logged; promoters cannot edit history" | Partial | Only `stock_transactions` is a ledger. No general audit log for leads, sales, attendance, price changes, overrides. |
+| "Territory lock… supervisor can override" | Partial | `locations.radius_m` exists, but nothing records whether an activity was in-radius, or that a supervisor overrode it (who/when/why). |
+| OTP flows (promoter login + QR lead) | Missing | No table to store OTP code, purpose, target mobile, expiry, attempt count. Both MSG91 OTP flows need this. |
+| "Keep all writes idempotent" (offline-first sync) | Missing | Server generates UUIDs by default. With no client-supplied idempotency key, a re-sent offline write creates a duplicate row. **Most important gap.** |
+| WhatsApp invoice + lead confirmation (MSG91) | Partial | `sales.whatsapp_status` is one field with no message id, template, retry, or webhook history; lead `whatsapp_confirmed` has no delivery record. |
+
+## B. Other schema issues
+
+- **`leads.mobile NOT NULL UNIQUE` (global)** — a global unique means the same number can never be re-captured at another location/campaign, and collides with the `customers` master. Consider per-campaign uniqueness, or block at the app layer with a friendly "already a lead" path.
+- **Two sources of truth for "sold"** — `inventory.sold` vs `stock_transactions(type='sale_deduction')` can drift. Treat the ledger as truth, `inventory` as a daily rollup.
+- **No `UNIQUE` on attendance** per `(promoter_id, shift, day)` — allows duplicate check-ins, which the offline queue will produce on retry.
+- **`stock_transactions.quantity`** signed but unconstrained — no `CHECK` that sign matches `type`.
+- **No `updated_at`** on mutable rows (`leads.status`, `sales.whatsapp_status`, `attendance.check_out_at`). Sync and audit both want it.
+- **`sales.total`** isn't tied to `sum(sale_items)` — must be computed server-side from `products.price`, never trusted from the client.
+- **Role isolation** ("promoter reads/writes only own data") is not expressible in DDL — needs app-layer scoping or Postgres RLS. Decide now.
+
+## C. Proposed schema additions (implemented in `db/schema_v2.sql`)
+
+1. `otp_verifications` — purpose (`login` / `qr_lead`), mobile, hashed code, expiry, attempts, consumed_at.
+2. `promoter_points` — append-only rewards ledger; references the earning lead/sale; only verified/converted leads earn.
+3. `audit_log` — actor, role, action, entity, before/after JSONB; promoters get INSERT-only.
+4. **Territory override** — `in_radius`, `override_by`, `override_reason` columns on `attendance`, `leads`, `sales`.
+5. `outbox_messages` — MSG91 SMS/WhatsApp send + delivery tracking (provider id, template, status, retries); the natural idempotency point for sends.
+6. **Idempotency key** — `client_uuid uuid UNIQUE` on `attendance`, `leads`, `sales`, `stock_transactions`. The Flutter app generates it offline; the API upserts on it.
+
+Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `CHECK` on `stock_transactions`, and `updated_at` columns with a touch trigger.
+
+## D. Architecture
+
+**api/** (Node + Express + pg, Render Singapore)
+- `routes → controllers → services → repositories(pg)`; SQL stays in repositories.
+- Auth: MSG91 OTP → JWT carrying `user_id` + `role`; middleware enforces role + own-data scoping.
+- Idempotency middleware: read `client_uuid`, upsert, return same resource on replay.
+- Money computed server-side from `products` into `sale_items.unit_price` / `sales.total`.
+- Integrations behind adapters: `msg91Sms`, `msg91Whatsapp`, `firebaseStorage` (URL only), `razorpay`; messaging via `outbox_messages`.
+- Migrations checked in; `schema.sql` + `schema_v2.sql` are source of truth.
+
+**dashboard/** (React, Cloudflare Pages) — admin + supervisor.
+- Login, promoters/territories, **Products & pricing** (edits `products`), leads & sales monitoring, refill approvals, canopy verification, reports/points. Role-gated UI mirroring API.
+
+**mobile/** (Flutter, Android, offline-first) — promoter.
+- Local SQLite mirror + write queue; every queued write carries a `client_uuid`. Sync flushes when online; server idempotency makes replays safe.
+- Flows: OTP login; attendance (selfie + canopy photo → Firebase, store URL); lead capture (manual = instant `unverified`, never blocked on OTP; QR = customer-phone OTP); sales + WhatsApp invoice; daily stock cycle + refill request.
+
+## E. Phasing
+
+1. **Schema v2** — apply `db/schema_v2.sql`.
+2. **API core** — auth/OTP, idempotency middleware, leads, sales (server-side pricing), inventory/stock, attendance.
+3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay.
+4. **Dashboard** — pricing + monitoring + approvals first.
+5. **Mobile** — offline queue + sync, then promoter flows.

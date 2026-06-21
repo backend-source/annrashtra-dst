@@ -1,0 +1,15 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps / build
+node_modules/
+dist/
+build/
+.dart_tool/
+*.log
+
+# os
+.DS_Store
+Thumbs.db
