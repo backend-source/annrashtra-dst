@@ -112,6 +112,10 @@ ALTER TABLE sales      ADD COLUMN IF NOT EXISTS override_reason  text;
 -- ============================================================
 --  C6. Idempotency keys for offline-first writes
 --  Flutter generates client_uuid offline; the API upserts ON CONFLICT (client_uuid).
+--  NOTE: these are PARTIAL unique indexes (WHERE client_uuid IS NOT NULL) so they
+--  don't index the many NULLs from non-offline rows. Postgres only matches a partial
+--  index if the statement repeats the predicate, so the upsert MUST be written as:
+--      ON CONFLICT (client_uuid) WHERE client_uuid IS NOT NULL DO ...
 -- ============================================================
 ALTER TABLE attendance         ADD COLUMN IF NOT EXISTS client_uuid uuid;
 ALTER TABLE leads              ADD COLUMN IF NOT EXISTS client_uuid uuid;
