@@ -62,7 +62,8 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
 3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay.
    - ✅ Outbox **sender worker** built + e2e-verified: `scripts/outbox-worker.js` (loop / `--once`) and `POST /api/outbox/process` (admin). Polls `outbox_messages`, sends via the MSG91 adapter, marks sent/failed with retries (FOR UPDATE SKIP LOCKED), and on a successful lead-confirmation send moves the lead to `whatsapp_confirmed` + awards points.
    - ✅ MSG91 adapter: dev mode (logs, with a failure sentinel) verified; **real HTTP calls wired but UNTESTED** until live auth key + DLT/approved templates exist. Login OTP-over-SMS uses the same adapter (dev logs to server.log).
-   - ⬜ Firebase Storage upload handling; ⬜ MSG91 delivery webhooks (we treat successful send as confirmation for now); ⬜ Razorpay.
+   - ✅ Delivery webhook `POST /api/outbox/webhook` (public, optional `x-webhook-secret`): flips sent→delivered and uses **delivery** as the lead-confirmation trigger. Dev auto-simulates delivery; prod awaits the MSG91 callback. Verified.
+   - ⬜ Firebase Storage upload handling; ⬜ Razorpay; ⬜ live MSG91 credentials/templates.
 4. **Dashboard** — ✅ scaffolded + click-tested (refill approvals, lead verify/convert, products pricing).
 5. **Mobile** — ⬜ offline queue + sync, then promoter flows.
 
