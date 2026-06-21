@@ -55,3 +55,20 @@ export async function markFailed(client, id, error) {
     [id, error?.slice(0, 500) ?? null],
   );
 }
+
+export async function markDelivered(client, id) {
+  await client.query(
+    `UPDATE outbox_messages SET status = 'delivered', updated_at = now() WHERE id = $1`,
+    [id],
+  );
+}
+
+// Match an incoming delivery report to its message; locked so the confirmation
+// side effect is applied exactly once.
+export async function findByProviderMsgId(client, providerMsgId) {
+  const { rows } = await client.query(
+    `SELECT * FROM outbox_messages WHERE provider_msg_id = $1 FOR UPDATE`,
+    [providerMsgId],
+  );
+  return rows[0] || null;
+}

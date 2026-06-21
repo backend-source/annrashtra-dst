@@ -4,6 +4,10 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
+// Public: MSG91 delivery callback (no JWT; optionally gated by a shared secret).
+// Declared before authenticate so the provider can reach it.
+router.post('/webhook', outbox.webhook);
+
 router.use(authenticate);
 
 // Trigger a send pass on demand (admin). Production uses the interval worker.

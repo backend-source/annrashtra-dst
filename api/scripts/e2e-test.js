@@ -241,13 +241,13 @@ await db.query(
 const proc = await post('/api/outbox/process', {}, admin.token);
 assert('outbox process ran', proc.status === 200 && proc.body.processed >= 2, `processed=${proc.body.processed} sent=${proc.body.sent} failed=${proc.body.failed}`);
 
-// invoice (from the earlier sale) is now sent with a provider id
+// invoice (from the earlier sale): sent then auto-delivered (dev), provider id set
 const invMsg = (await db.query(`SELECT status, provider_msg_id FROM outbox_messages WHERE sale_id=$1`, [sale1.body.id])).rows[0];
-assert('invoice marked sent', invMsg.status === 'sent' && !!invMsg.provider_msg_id, `status=${invMsg.status}`);
+assert('invoice delivered (dev auto)', invMsg.status === 'delivered' && !!invMsg.provider_msg_id, `status=${invMsg.status}`);
 
-// lead confirmation sent -> lead auto-confirmed + points awarded by the worker
+// lead confirmation delivered -> lead auto-confirmed + points awarded
 const lcMsg = (await db.query(`SELECT status FROM outbox_messages WHERE lead_id=$1 AND template='lead_confirmation'`, [fresh.body.id])).rows[0];
-assert('lead confirmation sent', lcMsg.status === 'sent', `status=${lcMsg.status}`);
+assert('lead confirmation delivered', lcMsg.status === 'delivered', `status=${lcMsg.status}`);
 const freshLeadRow = (await db.query(`SELECT verify_status FROM leads WHERE id=$1`, [fresh.body.id])).rows[0];
 assert('lead auto-confirmed via whatsapp', freshLeadRow.verify_status === 'whatsapp_confirmed', `verify=${freshLeadRow.verify_status}`);
 const freshPts = (await db.query(`SELECT count(*)::int n FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [fresh.body.id])).rows[0];
@@ -263,6 +263,33 @@ const freshPts2 = (await db.query(`SELECT count(*)::int n FROM promoter_points W
 assert('second pass: no double points', freshPts2.n === 1, `n=${freshPts2.n}`);
 const failMsg2 = (await db.query(`SELECT attempts FROM outbox_messages WHERE dedupe_key=$1`, [`testfail:${freshUuid}`])).rows[0];
 assert('second pass: failed msg retried (attempts=2)', failMsg2.attempts === 2, `attempts=${failMsg2.attempts}`);
+
+// ---- delivery webhook: production-style sent -> delivered -> lead confirmed ----
+// A fresh lead whose confirmation we mark 'sent' by hand (simulating a prod worker
+// send that awaits the provider callback), then deliver via the webhook.
+const wlUuid = randomUUID();
+const wlMobile = '75000' + String(Date.now()).slice(-6);
+const wlead = await post('/api/leads', { client_uuid: wlUuid, mobile: wlMobile, name: 'Webhook Lead' }, token);
+const providerId = `wh-${wlUuid.slice(0, 8)}`;
+await db.query(
+  `UPDATE outbox_messages SET status='sent', provider_msg_id=$2 WHERE lead_id=$1 AND template='lead_confirmation'`,
+  [wlead.body.id, providerId],
+);
+assert('webhook lead starts unverified', (await db.query(`SELECT verify_status FROM leads WHERE id=$1`, [wlead.body.id])).rows[0].verify_status === 'unverified');
+
+// public webhook (no token)
+const wh = await post('/api/outbox/webhook', { provider_msg_id: providerId, status: 'delivered' });
+assert('webhook matched', wh.status === 200 && wh.body.matched === true, `status=${wh.status} matched=${wh.body.matched}`);
+const wMsg = (await db.query(`SELECT status FROM outbox_messages WHERE provider_msg_id=$1`, [providerId])).rows[0];
+assert('webhook -> message delivered', wMsg.status === 'delivered', `status=${wMsg.status}`);
+const wLeadRow = (await db.query(`SELECT verify_status FROM leads WHERE id=$1`, [wlead.body.id])).rows[0];
+assert('webhook -> lead confirmed', wLeadRow.verify_status === 'whatsapp_confirmed', `verify=${wLeadRow.verify_status}`);
+const wPts = (await db.query(`SELECT count(*)::int n FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [wlead.body.id])).rows[0];
+assert('webhook -> points awarded once', wPts.n === 1, `n=${wPts.n}`);
+
+// unknown provider id -> 200 matched:false (so MSG91 stops retrying)
+const whUnknown = await post('/api/outbox/webhook', { provider_msg_id: 'does-not-exist', status: 'delivered' });
+assert('webhook unknown id -> 200 matched:false', whUnknown.status === 200 && whUnknown.body.matched === false, `status=${whUnknown.status}`);
 
 await db.end();
 console.log('\n' + results.join('\n'));

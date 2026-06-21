@@ -5,6 +5,10 @@ import { env } from '../config/env.js';
 // UNTESTED until live credentials + approved templates are configured.
 const DEV = !env.msg91.authKey;
 
+// In dev there is no real provider to send delivery callbacks, so the worker
+// simulates delivery itself. In production we wait for the MSG91 webhook.
+export const MSG91_DEV = DEV;
+
 // Test hook: a send to this number always fails, so the retry/failure path is
 // exercisable in dev. Real numbers are never this value.
 const FAIL_SENTINEL = '0000000000';

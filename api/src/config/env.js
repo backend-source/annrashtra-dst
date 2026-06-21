@@ -24,5 +24,6 @@ export const env = {
     senderId: process.env.MSG91_SENDER_ID,
     otpTemplateId: process.env.MSG91_OTP_TEMPLATE_ID,
     whatsappNumber: process.env.MSG91_WHATSAPP_NUMBER,
+    webhookSecret: process.env.MSG91_WEBHOOK_SECRET, // optional shared secret for delivery callbacks
   },
 };
