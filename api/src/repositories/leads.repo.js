@@ -9,7 +9,8 @@ export async function insertLeadIdempotent(lead) {
        product_interest, source, verify_status, status, in_radius,
        override_by, override_reason, client_uuid)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-    ON CONFLICT (client_uuid) DO UPDATE SET client_uuid = EXCLUDED.client_uuid
+    ON CONFLICT (client_uuid) WHERE client_uuid IS NOT NULL
+      DO UPDATE SET client_uuid = EXCLUDED.client_uuid
     RETURNING *`;
   const params = [
     lead.promoter_id, lead.location_id ?? null, lead.customer_id ?? null,

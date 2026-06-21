@@ -21,7 +21,7 @@ export async function insertSale(client, s) {
        (promoter_id, location_id, customer_id, invoice_no, payment_mode, total,
         whatsapp_status, in_radius, override_by, override_reason, client_uuid)
      VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10)
-     ON CONFLICT (client_uuid) DO NOTHING
+     ON CONFLICT (client_uuid) WHERE client_uuid IS NOT NULL DO NOTHING
      RETURNING *`,
     [s.promoter_id, s.location_id ?? null, s.customer_id ?? null, s.invoice_no,
      s.payment_mode, s.total, s.in_radius ?? null, s.override_by ?? null,
