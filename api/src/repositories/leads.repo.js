@@ -28,6 +28,22 @@ export async function findLeadByMobile(mobile) {
   return rows[0] || null;
 }
 
+export async function getByIdForUpdate(client, id) {
+  const { rows } = await client.query('SELECT * FROM leads WHERE id = $1 FOR UPDATE', [id]);
+  return rows[0] || null;
+}
+
+export async function updateState(client, id, { verify_status, status }) {
+  const { rows } = await client.query(
+    `UPDATE leads
+     SET verify_status = COALESCE($2, verify_status),
+         status        = COALESCE($3, status)
+     WHERE id = $1 RETURNING *`,
+    [id, verify_status ?? null, status ?? null],
+  );
+  return rows[0];
+}
+
 // Promoters see only their own leads; supervisors/admins pass promoterId = null.
 export async function listLeads({ promoterId }) {
   if (promoterId) {

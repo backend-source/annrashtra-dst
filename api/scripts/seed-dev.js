@@ -11,6 +11,13 @@ const client = new pg.Client({
 
 await client.connect();
 try {
+  const admin = (await client.query(
+    `INSERT INTO users (name, mobile, role)
+     VALUES ('Test Admin', '9999000003', 'admin')
+     ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`,
+  )).rows[0];
+
   const supervisor = (await client.query(
     `INSERT INTO users (name, mobile, role)
      VALUES ('Test Supervisor', '9999000002', 'supervisor')
@@ -49,6 +56,7 @@ try {
     public_tables: tables,
     promoter_id: promoter.id,
     supervisor_id: supervisor.id,
+    admin_id: admin.id,
     location_id: location.id,
     customer_id: customer.id,
     products,

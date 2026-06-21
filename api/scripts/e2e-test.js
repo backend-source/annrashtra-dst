@@ -12,6 +12,7 @@ const BASE = 'http://localhost:8080';
 const LOG = process.argv[2];
 const PROMOTER = '9999000001';
 const SUPERVISOR = '9999000002';
+const ADMIN = '9999000003';
 const results = [];
 const assert = (name, cond, extra = '') => {
   results.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  ' + extra : ''}`);
@@ -30,6 +31,15 @@ async function post(path, body, token) {
 
 async function get(path, token) {
   const res = await fetch(BASE + path, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
+async function patch(path, body, token) {
+  const res = await fetch(BASE + path, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
@@ -175,6 +185,42 @@ const rej = await post(`/api/inventory/refill-requests/${rr3.body.id}/reject`, {
 assert('supervisor reject -> rejected', rej.status === 200 && rej.body.status === 'rejected', `status=${rej.status}`);
 const apprRej = await post(`/api/inventory/refill-requests/${rr3.body.id}/approve`, {}, sup.token);
 assert('approve after reject -> 409', apprRej.status === 409, `status=${apprRej.status}`);
+
+// ---- (a) lead verify/convert -> points, audit_log, products pricing ----
+// supervisor verifies the lead -> awards lead_verified (10), idempotent
+const vLead = await patch(`/api/leads/${lead1.body.id}/state`, { verify_status: 'whatsapp_confirmed' }, sup.token);
+assert('lead verify -> whatsapp_confirmed', vLead.status === 200 && vLead.body.verify_status === 'whatsapp_confirmed', `status=${vLead.status}`);
+const pVer = (await db.query(`SELECT points FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [lead1.body.id])).rows;
+assert('points awarded for verify (10)', pVer.length === 1 && pVer[0].points === 10, `rows=${pVer.length}`);
+await patch(`/api/leads/${lead1.body.id}/state`, { verify_status: 'whatsapp_confirmed' }, sup.token);
+const pVer2 = (await db.query(`SELECT count(*)::int n FROM promoter_points WHERE lead_id=$1 AND reason='lead_verified'`, [lead1.body.id])).rows[0];
+assert('verify idempotent (no double points)', pVer2.n === 1, `n=${pVer2.n}`);
+
+// convert -> awards lead_converted (25)
+const cLead = await patch(`/api/leads/${lead1.body.id}/state`, { status: 'converted' }, sup.token);
+assert('lead convert -> converted', cLead.status === 200 && cLead.body.status === 'converted', `status=${cLead.status}`);
+const pConv = (await db.query(`SELECT points FROM promoter_points WHERE lead_id=$1 AND reason='lead_converted'`, [lead1.body.id])).rows;
+assert('points awarded for convert (25)', pConv.length === 1 && pConv[0].points === 25, `rows=${pConv.length}`);
+
+// promoter cannot change lead state
+const badState = await patch(`/api/leads/${lead1.body.id}/state`, { status: 'dropped' }, token);
+assert('promoter lead-state forbidden (403)', badState.status === 403, `status=${badState.status}`);
+
+// audit_log captured the writes (durable: middleware awaits before responding)
+const auLead = (await db.query(`SELECT count(*)::int n FROM audit_log WHERE entity='leads' AND entity_id=$1`, [lead1.body.id])).rows[0];
+assert('audit_log has lead writes', auLead.n >= 1, `n=${auLead.n}`);
+const auSale = (await db.query(`SELECT count(*)::int n FROM audit_log WHERE entity='sales' AND entity_id=$1`, [sale1.body.id])).rows[0];
+assert('audit_log has sale write', auSale.n >= 1, `n=${auSale.n}`);
+
+// products: list (any role) + admin-only price edit
+const admin = await login(ADMIN);
+const prods = await get('/api/products', admin.token);
+assert('products list returns 2', Array.isArray(prods.body) && prods.body.length === 2, `len=${prods.body?.length}`);
+const priceEdit = await patch(`/api/products/${product2.id}`, { price: 799 }, admin.token);
+assert('admin edits price -> 799', priceEdit.status === 200 && Number(priceEdit.body.price) === 799, `status=${priceEdit.status}`);
+const badPrice = await patch(`/api/products/${product2.id}`, { price: 999 }, token);
+assert('promoter price edit forbidden (403)', badPrice.status === 403, `status=${badPrice.status}`);
+await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // restore
 
 await db.end();
 console.log('\n' + results.join('\n'));

@@ -17,3 +17,12 @@ export async function list(req, res, next) {
     next(err);
   }
 }
+
+export async function updateState(req, res, next) {
+  try {
+    const lead = await leadsService.updateLeadState(req.params.id, req.body);
+    res.json(lead);
+  } catch (err) {
+    next(err);
+  }
+}

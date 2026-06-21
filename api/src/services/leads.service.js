@@ -1,5 +1,12 @@
 import { ApiError } from '../middleware/errorHandler.js';
+import { withTransaction } from '../config/db.js';
+import { POINTS } from '../config/points.js';
 import * as leadsRepo from '../repositories/leads.repo.js';
+import * as pointsRepo from '../repositories/points.repo.js';
+
+const VERIFY_STATUSES = new Set(['unverified', 'whatsapp_confirmed', 'otp_verified']);
+const VERIFIED = new Set(['whatsapp_confirmed', 'otp_verified']);
+const STATUSES = new Set(['new', 'contacted', 'converted', 'dropped']);
 
 // Manual leads are captured immediately as 'unverified' and are NEVER blocked on OTP.
 // WhatsApp delivery later moves them to 'whatsapp_confirmed'; QR leads use customer
@@ -43,4 +50,33 @@ export async function captureManualLead(input) {
 export function listLeads(user) {
   const promoterId = user.role === 'promoter' ? user.id : null;
   return leadsRepo.listLeads({ promoterId });
+}
+
+// Supervisor/admin moves a lead's verification or status. Points are awarded ONLY
+// on the transition INTO a verified state or into 'converted' — and only once
+// (the promoter_points unique on (lead_id, reason) guards replays). This is the
+// single place the "rewards count only verified/converted leads" rule lives.
+export async function updateLeadState(id, { verify_status, status }) {
+  if (verify_status && !VERIFY_STATUSES.has(verify_status)) throw new ApiError(400, 'invalid verify_status');
+  if (status && !STATUSES.has(status)) throw new ApiError(400, 'invalid status');
+  if (!verify_status && !status) throw new ApiError(400, 'nothing to update');
+
+  return withTransaction(async (client) => {
+    const lead = await leadsRepo.getByIdForUpdate(client, id);
+    if (!lead) throw new ApiError(404, 'Lead not found');
+
+    const updated = await leadsRepo.updateState(client, id, { verify_status, status });
+
+    if (verify_status && VERIFIED.has(verify_status) && !VERIFIED.has(lead.verify_status)) {
+      await pointsRepo.awardForLead(client, {
+        promoter_id: lead.promoter_id, points: POINTS.lead_verified, reason: 'lead_verified', lead_id: id,
+      });
+    }
+    if (status === 'converted' && lead.status !== 'converted') {
+      await pointsRepo.awardForLead(client, {
+        promoter_id: lead.promoter_id, points: POINTS.lead_converted, reason: 'lead_converted', lead_id: id,
+      });
+    }
+    return updated;
+  });
 }
