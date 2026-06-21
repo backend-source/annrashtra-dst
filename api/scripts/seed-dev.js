@@ -11,11 +11,18 @@ const client = new pg.Client({
 
 await client.connect();
 try {
-  const promoter = (await client.query(
+  const supervisor = (await client.query(
     `INSERT INTO users (name, mobile, role)
-     VALUES ('Test Promoter', '9999000001', 'promoter')
+     VALUES ('Test Supervisor', '9999000002', 'supervisor')
      ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name
      RETURNING id`,
+  )).rows[0];
+
+  const promoter = (await client.query(
+    `INSERT INTO users (name, mobile, role, supervisor_id)
+     VALUES ('Test Promoter', '9999000001', 'promoter', $1)
+     ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name, supervisor_id = EXCLUDED.supervisor_id
+     RETURNING id`, [supervisor.id],
   )).rows[0];
 
   const location = (await client.query(
@@ -41,6 +48,7 @@ try {
   console.log(JSON.stringify({
     public_tables: tables,
     promoter_id: promoter.id,
+    supervisor_id: supervisor.id,
     location_id: location.id,
     customer_id: customer.id,
     products,
