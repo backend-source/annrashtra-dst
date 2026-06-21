@@ -126,20 +126,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_stocktxn_client_uuid   ON stock_transaction
 -- ============================================================
 --  B fixes (safe)
 -- ============================================================
--- One check-in per promoter / shift / day (kills offline-retry duplicates)
-CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_shift_day ON attendance(promoter_id, shift, day_of(check_in_at))
-  WHERE check_in_at IS NOT NULL;
--- NOTE: Postgres can't index an expression like that without an IMMUTABLE helper.
---       If the above errors on your PG version, use a stored `day date` column on
---       attendance instead and index (promoter_id, shift, day). See review doc B.
+-- One check-in per promoter / shift / day (kills offline-retry duplicates).
+-- A stored generated column gives us an IMMUTABLE date to index on. The local-day
+-- is computed in IST so a single field shift never spans two "days".
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS att_day date
+  GENERATED ALWAYS AS (((check_in_at AT TIME ZONE 'Asia/Kolkata'))::date) STORED;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_shift_day
+  ON attendance(promoter_id, shift, att_day) WHERE check_in_at IS NOT NULL;
 
--- Sign of a stock movement must match its type
-ALTER TABLE stock_transactions
-  ADD CONSTRAINT chk_stocktxn_sign CHECK (
-    (type IN ('allocation','refill') AND quantity > 0) OR
-    (type = 'sale_deduction'         AND quantity < 0) OR
-    (type = 'adjustment')                                  -- adjustment may be + or -
-  );
+-- Sign of a stock movement must match its type (guarded so the migration is re-runnable)
+DO $$ BEGIN
+  ALTER TABLE stock_transactions
+    ADD CONSTRAINT chk_stocktxn_sign CHECK (
+      (type IN ('allocation','refill') AND quantity > 0) OR
+      (type = 'sale_deduction'         AND quantity < 0) OR
+      (type = 'adjustment')                                  -- adjustment may be + or -
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- updated_at on mutable rows + a shared touch trigger
 ALTER TABLE leads      ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
