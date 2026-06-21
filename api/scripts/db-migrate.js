@@ -14,7 +14,11 @@ const dbDir = path.resolve(here, '../../db');
 const files = process.argv.slice(2);
 const toApply = files.length
   ? files
-  : [path.join(dbDir, 'schema.sql'), path.join(dbDir, 'schema_v2.sql')];
+  : [
+      path.join(dbDir, 'schema.sql'),
+      path.join(dbDir, 'schema_v2.sql'),
+      path.join(dbDir, 'schema_v3.sql'),
+    ];
 
 const client = new pg.Client({
   connectionString: process.env.DATABASE_URL,

@@ -58,14 +58,21 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
 ## E. Phasing
 
 1. **Schema v2** — apply `db/schema_v2.sql`. ✅ done (applied to Neon Singapore)
-2. **API core** — auth/OTP, idempotency middleware, leads, sales (server-side pricing), inventory/stock, attendance.
-   - ✅ auth/OTP, leads, sales, attendance — built + e2e-verified (25/25 against the real DB)
-   - ⬜ inventory / refill-approval — still a 501 stub
-3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay. (outbox rows are queued; no sender worker yet)
+2. **API core** — auth/OTP, idempotency middleware, leads, sales (server-side pricing), inventory/stock, attendance. ✅ **complete** — built + e2e-verified (38/38 against the real DB).
+3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay. ⬜ (outbox rows are queued; no sender worker yet)
 4. **Dashboard** — pricing + monitoring + approvals first.
 5. **Mobile** — offline queue + sync, then promoter flows.
 
-### Verified so far (`api/scripts/e2e-test.js`, re-runnable)
+### Verified so far (`api/scripts/e2e-test.js`, re-runnable, 38/38)
 auth → JWT • lead capture (unverified, idempotent, dup-mobile 409) • sale (server-side
 pricing, stock ledger, inventory rollup, invoice outbox, idempotent) • attendance
-(territory radius check, supervisor override, daily-unique, check-out, canopy verify).
+(territory radius check, supervisor override, daily-unique, check-out, canopy verify) •
+inventory (opening allocation, daily cycle, refill request → supervisor approve/reject,
+ledger + inventory.refill bump, idempotent).
+
+### Known cross-cutting gaps (not yet wired)
+- **audit_log** table exists but services don't write to it yet — stock changes are
+  traceable via `stock_transactions`, but lead/sale/attendance edits are not yet logged.
+- **promoter_points** table exists but nothing awards points yet (should fire on
+  verified/converted leads — see lead WhatsApp-confirmation TODO).
+- **outbox worker** not built — invoice/confirmation rows queue but nothing sends them.
