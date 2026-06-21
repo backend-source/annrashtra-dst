@@ -57,8 +57,15 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
 
 ## E. Phasing
 
-1. **Schema v2** — apply `db/schema_v2.sql`.
+1. **Schema v2** — apply `db/schema_v2.sql`. ✅ done (applied to Neon Singapore)
 2. **API core** — auth/OTP, idempotency middleware, leads, sales (server-side pricing), inventory/stock, attendance.
-3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay.
+   - ✅ auth/OTP, leads, sales, attendance — built + e2e-verified (25/25 against the real DB)
+   - ⬜ inventory / refill-approval — still a 501 stub
+3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay. (outbox rows are queued; no sender worker yet)
 4. **Dashboard** — pricing + monitoring + approvals first.
 5. **Mobile** — offline queue + sync, then promoter flows.
+
+### Verified so far (`api/scripts/e2e-test.js`, re-runnable)
+auth → JWT • lead capture (unverified, idempotent, dup-mobile 409) • sale (server-side
+pricing, stock ledger, inventory rollup, invoice outbox, idempotent) • attendance
+(territory radius check, supervisor override, daily-unique, check-out, canopy verify).
