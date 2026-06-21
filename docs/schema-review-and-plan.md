@@ -65,7 +65,10 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
    - ✅ Delivery webhook `POST /api/outbox/webhook` (public, optional `x-webhook-secret`): flips sent→delivered and uses **delivery** as the lead-confirmation trigger. Dev auto-simulates delivery; prod awaits the MSG91 callback. Verified.
    - ⬜ Firebase Storage upload handling; ⬜ Razorpay; ⬜ live MSG91 credentials/templates.
 4. **Dashboard** — ✅ scaffolded + click-tested (refill approvals, lead verify/convert, products pricing).
-5. **Mobile** — ⬜ offline queue + sync, then promoter flows.
+5. **Mobile** — ✅ offline-first foundation built + verified (`flutter analyze` clean, unit test + `flutter build web` pass).
+   - OTP login (promoter-only), durable Hive write-queue with device-generated `client_uuid`, idempotent sync engine, connectivity auto-sync on reconnect.
+   - Flows: lead capture, sale (server-priced), attendance check-in, opening stock + refill request, sync-queue viewer. Reads (products/locations) cached for offline.
+   - ⬜ Still needed for Android: real GPS (geolocator) + selfie/canopy camera + Firebase upload (currently manual GPS / placeholder URL), QR-lead OTP flow, and on-device/APK testing (needs Android Studio / Android SDK — not installed here).
 
 ### Verified so far (`api/scripts/e2e-test.js`, re-runnable, 38/38)
 auth → JWT • lead capture (unverified, idempotent, dup-mobile 409) • sale (server-side
