@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import leadsRoutes from './leads.routes.js';
+import salesRoutes from './sales.routes.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/leads', leadsRoutes);
+router.use('/sales', salesRoutes);
 
 // Stubs for the remaining phase-2 verticals. Each follows the leads pattern:
 // routes -> controller -> service -> repository, with requireClientUuid on writes.
@@ -14,7 +16,6 @@ router.use('/leads', leadsRoutes);
 const notImplemented = (name) => (_req, res) =>
   res.status(501).json({ error: `${name} not implemented yet` });
 
-router.use('/sales', authenticate, notImplemented('sales'));
 router.use('/inventory', authenticate, notImplemented('inventory'));
 router.use('/attendance', authenticate, notImplemented('attendance'));
 
