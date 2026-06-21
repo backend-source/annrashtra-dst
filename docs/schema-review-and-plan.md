@@ -59,9 +59,12 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
 
 1. **Schema v2** — apply `db/schema_v2.sql`. ✅ done (applied to Neon Singapore)
 2. **API core** — auth/OTP, idempotency middleware, leads, sales (server-side pricing), inventory/stock, attendance. ✅ **complete** — built + e2e-verified (38/38 against the real DB).
-3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay. ⬜ (outbox rows are queued; no sender worker yet)
-4. **Dashboard** — pricing + monitoring + approvals first.
-5. **Mobile** — offline queue + sync, then promoter flows.
+3. **API integrations** — MSG91 SMS+WhatsApp via outbox, Firebase URL handling, optional Razorpay.
+   - ✅ Outbox **sender worker** built + e2e-verified: `scripts/outbox-worker.js` (loop / `--once`) and `POST /api/outbox/process` (admin). Polls `outbox_messages`, sends via the MSG91 adapter, marks sent/failed with retries (FOR UPDATE SKIP LOCKED), and on a successful lead-confirmation send moves the lead to `whatsapp_confirmed` + awards points.
+   - ✅ MSG91 adapter: dev mode (logs, with a failure sentinel) verified; **real HTTP calls wired but UNTESTED** until live auth key + DLT/approved templates exist. Login OTP-over-SMS uses the same adapter (dev logs to server.log).
+   - ⬜ Firebase Storage upload handling; ⬜ MSG91 delivery webhooks (we treat successful send as confirmation for now); ⬜ Razorpay.
+4. **Dashboard** — ✅ scaffolded + click-tested (refill approvals, lead verify/convert, products pricing).
+5. **Mobile** — ⬜ offline queue + sync, then promoter flows.
 
 ### Verified so far (`api/scripts/e2e-test.js`, re-runnable, 38/38)
 auth → JWT • lead capture (unverified, idempotent, dup-mobile 409) • sale (server-side
@@ -70,9 +73,8 @@ pricing, stock ledger, inventory rollup, invoice outbox, idempotent) • attenda
 inventory (opening allocation, daily cycle, refill request → supervisor approve/reject,
 ledger + inventory.refill bump, idempotent).
 
-### Known cross-cutting gaps (not yet wired)
-- **audit_log** table exists but services don't write to it yet — stock changes are
-  traceable via `stock_transactions`, but lead/sale/attendance edits are not yet logged.
-- **promoter_points** table exists but nothing awards points yet (should fire on
-  verified/converted leads — see lead WhatsApp-confirmation TODO).
-- **outbox worker** not built — invoice/confirmation rows queue but nothing sends them.
+### Cross-cutting status
+- **audit_log** ✅ wired via write-logging middleware — every authenticated successful write is logged (after-image). ⬜ before-images for updates still TODO.
+- **promoter_points** ✅ awarded on lead verify (+10) / convert (+25), idempotent — via both the supervisor PATCH and the outbox lead-confirmation path.
+- **outbox worker** ✅ built + verified (see phase 3 above).
+- ⬜ Remaining: live MSG91 credentials/templates, Firebase uploads, delivery webhooks, mobile app.
