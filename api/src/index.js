@@ -15,6 +15,14 @@ app.use('/api', routes);
 app.use(notFound);
 app.use(errorHandler);
 
+// Don't let a stray async error take the server down (esp. during local dev).
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 app.listen(env.port, () => {
   console.log(`Annrashtra DST API listening on :${env.port} (${env.nodeEnv})`);
 });

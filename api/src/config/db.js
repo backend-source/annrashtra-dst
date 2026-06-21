@@ -9,6 +9,14 @@ export const pool = new pg.Pool({
     : false,
 });
 
+// Neon's free tier suspends compute when idle, which drops pooled connections.
+// node-postgres emits 'error' on the dead idle client; without this handler that
+// would crash the whole process. Log and move on — the pool makes a fresh
+// connection on the next query.
+pool.on('error', (err) => {
+  console.error('[db] idle client error (likely Neon auto-suspend):', err.message);
+});
+
 export function query(text, params) {
   return pool.query(text, params);
 }
