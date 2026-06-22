@@ -92,6 +92,18 @@ class AppState extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> products() => _listCached('/api/products', 'products');
   Future<List<Map<String, dynamic>>> locations() => _listCached('/api/locations', 'locations');
 
+  // The promoter's own overview (revenue, leads, points...). Cached for offline.
+  Future<Map<String, dynamic>?> overview() async {
+    try {
+      final res = await api.get('/api/reports/overview') as Map<String, dynamic>;
+      store.cachePut('overview', res);
+      return res;
+    } on ApiException {
+      final cached = store.cacheGet('overview');
+      return cached is Map ? Map<String, dynamic>.from(cached) : null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _listCached(String path, String key) async {
     try {
       final res = await api.get(path) as List;

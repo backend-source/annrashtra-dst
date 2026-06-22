@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import Overview from '../pages/Overview.jsx';
 import RefillApprovals from '../pages/RefillApprovals.jsx';
 import Leads from '../pages/Leads.jsx';
 import Attendance from '../pages/Attendance.jsx';
 import Products from '../pages/Products.jsx';
 
 const TABS = [
+  { id: 'overview', label: 'Overview', el: Overview },
   { id: 'refills', label: 'Refill Approvals', el: RefillApprovals },
   { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },
@@ -12,7 +14,7 @@ const TABS = [
 ];
 
 export default function Layout({ user, onLogout }) {
-  const [tab, setTab] = useState('refills');
+  const [tab, setTab] = useState('overview');
   const Active = TABS.find((t) => t.id === tab).el;
 
   return (

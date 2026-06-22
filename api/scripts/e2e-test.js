@@ -230,6 +230,14 @@ await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // res
 const locs = await get('/api/locations', token);
 assert('promoter locations list includes Test Park', Array.isArray(locs.body) && locs.body.some((l) => l.id === loc.id), `n=${locs.body?.length}`);
 
+// reports overview — role-scoped
+const repP = await get('/api/reports/overview', token);
+assert('promoter overview (self, no leaderboard)', repP.status === 200 && repP.body.scope === 'promoter' && !!repP.body.kpis && repP.body.leaderboard.length === 0, `scope=${repP.body?.scope}`);
+const repS = await get('/api/reports/overview', sup.token);
+assert('supervisor overview (team-scoped)', repS.status === 200 && repS.body.scope === 'supervisor' && repS.body.promoters_in_scope >= 1, `inscope=${repS.body?.promoters_in_scope}`);
+const repA = await get('/api/reports/overview', admin.token);
+assert('admin overview (org-wide, 7-day series)', repA.status === 200 && repA.body.scope === 'admin' && Array.isArray(repA.body.sales_7d) && repA.body.sales_7d.length === 7, `days=${repA.body?.sales_7d?.length}`);
+
 // ---- (phase 3) outbox sender: invoice + lead confirmation, retry, idempotency ----
 // a fresh unverified lead -> enqueues a 'lead_confirmation' message
 const freshUuid = randomUUID();
