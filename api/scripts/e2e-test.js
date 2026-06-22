@@ -68,6 +68,9 @@ const customer = (await db.query(`SELECT id FROM customers WHERE mobile = '88880
 const loc = (await db.query(`SELECT id, lat, lng, radius_m FROM locations WHERE name = 'Test Park'`)).rows[0];
 const supervisorRow = (await db.query(`SELECT id FROM users WHERE mobile = $1`, [SUPERVISOR])).rows[0];
 
+// reset the OTP rate-limit window for the test mobiles so the suite is re-runnable
+await db.query(`DELETE FROM otp_verifications WHERE mobile IN ($1,$2,$3)`, [PROMOTER, SUPERVISOR, ADMIN]);
+
 // ---- auth ----
 const { token, user } = await login(PROMOTER);
 const pid = user.id;

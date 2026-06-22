@@ -43,7 +43,8 @@ export async function createSale(input) {
       return { ...it, unit_price: unitPrice };
     });
 
-    const invoiceNo = `INV-${new Date().toISOString().slice(0, 10)}-${input.client_uuid.slice(0, 8)}`;
+    const istDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD in IST
+    const invoiceNo = `INV-${istDate}-${input.client_uuid.slice(0, 8)}`;
 
     const sale = await salesRepo.insertSale(client, {
       promoter_id: input.promoter_id,

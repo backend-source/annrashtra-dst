@@ -9,11 +9,29 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
 }
 
+const OTP_COOLDOWN_MS = 30_000; // min gap between requests for a mobile
+const OTP_MAX_PER_HOUR = 5;
+
 // Step 1: request an OTP for a known user's mobile.
 export async function requestLoginOtp(mobile) {
   if (!mobile) throw new ApiError(400, 'mobile is required');
   const { rows } = await query('SELECT id FROM users WHERE mobile = $1 AND status = $2', [mobile, 'active']);
   if (!rows[0]) throw new ApiError(404, 'No active user with that mobile');
+
+  // Rate-limit OTP requests per mobile (this endpoint is unauthenticated).
+  const recent = await query(
+    `SELECT count(*)::int n, max(created_at) AS last
+     FROM otp_verifications
+     WHERE mobile = $1 AND purpose = 'login' AND created_at > now() - interval '1 hour'`,
+    [mobile],
+  );
+  if (recent.rows[0].n >= OTP_MAX_PER_HOUR) {
+    throw new ApiError(429, 'Too many OTP requests. Please try again later.');
+  }
+  const last = recent.rows[0].last;
+  if (last && Date.now() - new Date(last).getTime() < OTP_COOLDOWN_MS) {
+    throw new ApiError(429, 'Please wait a moment before requesting another OTP.');
+  }
 
   const code = generateOtp();
   const codeHash = await bcrypt.hash(code, 8);

@@ -1,22 +1,37 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+const isProd = (process.env.NODE_ENV || 'development') === 'production';
+
 function required(name) {
   const v = process.env[name];
   if (!v) {
     // Fail fast in production; warn in dev so the skeleton still boots.
     const msg = `Missing required env var: ${name}`;
-    if (process.env.NODE_ENV === 'production') throw new Error(msg);
+    if (isProd) throw new Error(msg);
     console.warn(`[env] ${msg} (continuing in dev)`);
   }
   return v;
 }
 
+// In production a real secret MUST be supplied; never fall back to a known string.
+function jwtSecret() {
+  const v = process.env.JWT_SECRET;
+  if (v) return v;
+  if (isProd) throw new Error('JWT_SECRET is required in production');
+  console.warn('[env] JWT_SECRET not set — using an insecure dev default');
+  return 'dev-only-insecure-secret';
+}
+
 export const env = {
   port: parseInt(process.env.PORT || '8080', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  isProd,
   databaseUrl: required('DATABASE_URL'),
-  jwtSecret: process.env.JWT_SECRET || 'dev-only-insecure-secret',
+  // Comma-separated allowed browser origins for CORS (the dashboard URL in prod).
+  // Empty in dev => allow all.
+  corsOrigin: process.env.CORS_ORIGIN || '',
+  jwtSecret: jwtSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   otpTtlSeconds: parseInt(process.env.OTP_TTL_SECONDS || '300', 10),
   msg91: {

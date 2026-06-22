@@ -1,9 +1,13 @@
 import pg from 'pg';
 import { env } from './env.js';
 
-// Single shared pool. Neon requires SSL.
+// Single shared pool. Neon requires SSL. The session timezone is pinned to IST
+// (set at connection startup, race-free) so current_date / ::date casts use the
+// India business day — daily inventory cycles, "today's sales", and reports all
+// roll over at IST midnight, not UTC midnight (UTC would be 05:30 IST).
 export const pool = new pg.Pool({
   connectionString: env.databaseUrl,
+  options: '-c timezone=Asia/Kolkata',
   ssl: env.databaseUrl?.includes('neon.tech') || env.nodeEnv === 'production'
     ? { rejectUnauthorized: false }
     : false,
