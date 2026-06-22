@@ -4,6 +4,7 @@ import 'services/api_client.dart';
 import 'services/local_store.dart';
 import 'services/sync_service.dart';
 import 'services/auth_service.dart';
+import 'services/photo_uploader.dart';
 import 'state/app_state.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -15,7 +16,8 @@ Future<void> main() async {
   final api = ApiClient();
   final sync = SyncService(api, store);
   final auth = AuthService(api, store);
-  final state = AppState(api, store, sync, auth);
+  final uploader = StubPhotoUploader(); // swap for FirebaseUploader when configured
+  final state = AppState(api, store, sync, auth, uploader);
   runApp(ChangeNotifierProvider<AppState>.value(value: state, child: const PromoterApp()));
 }
 

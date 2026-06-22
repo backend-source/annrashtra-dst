@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../services/local_store.dart';
 import '../services/sync_service.dart';
 import '../services/auth_service.dart';
+import '../services/photo_uploader.dart';
 import '../models/pending_op.dart';
 
 /// App-wide state: session, connectivity, and the offline-first write path.
@@ -14,13 +15,14 @@ class AppState extends ChangeNotifier {
   final LocalStore store;
   final SyncService sync;
   final AuthService auth;
+  final PhotoUploader photoUploader;
   final _uuid = const Uuid();
 
   bool online = true;
   Map<String, dynamic>? user;
   StreamSubscription<List<ConnectivityResult>>? _connSub;
 
-  AppState(this.api, this.store, this.sync, this.auth) {
+  AppState(this.api, this.store, this.sync, this.auth, this.photoUploader) {
     user = store.user;
     final t = store.token;
     if (t != null) api.setToken(t);

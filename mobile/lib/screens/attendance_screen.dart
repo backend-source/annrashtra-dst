@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../state/app_state.dart';
 import '../services/api_client.dart';
 import '../services/location_service.dart';
@@ -12,31 +14,20 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
+  final _picker = ImagePicker();
   List<Map<String, dynamic>> _locations = [];
   String? _locationId;
   String _shift = 'morning';
   final _lat = TextEditingController();
   final _lng = TextEditingController();
+  XFile? _selfie;
+  XFile? _canopy;
+  Uint8List? _selfieBytes;
+  Uint8List? _canopyBytes;
   bool _loading = true;
   bool _locating = false;
+  bool _submitting = false;
   String? _error;
-
-  Future<void> _useGps() async {
-    setState(() => _locating = true);
-    try {
-      final loc = await LocationService.current();
-      _lat.text = loc.lat.toStringAsFixed(6);
-      _lng.text = loc.lng.toStringAsFixed(6);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
 
   @override
   void initState() {
@@ -64,25 +55,100 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  Future<void> _useGps() async {
+    setState(() => _locating = true);
+    try {
+      final loc = await LocationService.current();
+      _lat.text = loc.lat.toStringAsFixed(6);
+      _lng.text = loc.lng.toStringAsFixed(6);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _capture(bool isSelfie) async {
+    final file = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1280,
+      imageQuality: 70,
+      preferredCameraDevice: isSelfie ? CameraDevice.front : CameraDevice.rear,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    setState(() {
+      if (isSelfie) {
+        _selfie = file;
+        _selfieBytes = bytes;
+      } else {
+        _canopy = file;
+        _canopyBytes = bytes;
+      }
+    });
+  }
+
   Future<void> _checkIn() async {
     if (_locationId == null) return;
-    await context.read<AppState>().queueWrite(
-      label: 'Check-in ($_shift)',
-      path: '/api/attendance/check-in',
-      body: {
-        'location_id': _locationId,
-        'shift': _shift,
-        'gps_lat': double.tryParse(_lat.text),
-        'gps_lng': double.tryParse(_lng.text),
-        // Photo upload (Firebase) is wired on Android; placeholder URL for now.
-        'selfie_url': 'pending-upload',
-      },
+    if (_selfie == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Capture a selfie first')));
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final s = context.read<AppState>();
+      final selfieUrl = await s.photoUploader.upload(_selfie!, 'selfies');
+      final canopyUrl = _canopy != null ? await s.photoUploader.upload(_canopy!, 'canopy') : null;
+      await s.queueWrite(
+        label: 'Check-in ($_shift)',
+        path: '/api/attendance/check-in',
+        body: {
+          'location_id': _locationId,
+          'shift': _shift,
+          'gps_lat': double.tryParse(_lat.text),
+          'gps_lng': double.tryParse(_lng.text),
+          'selfie_url': selfieUrl,
+          'canopy_photo_url': ?canopyUrl,
+        },
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Check-in saved — will sync when online')),
+      );
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _photoBox(String label, Uint8List? bytes, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: bytes == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.camera_alt, color: Colors.black54),
+                  const SizedBox(height: 4),
+                  Text(label, style: const TextStyle(color: Colors.black54)),
+                ],
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(bytes, fit: BoxFit.cover, width: double.infinity),
+              ),
+      ),
     );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Check-in saved — will sync when online')),
-    );
-    Navigator.of(context).pop();
   }
 
   @override
@@ -144,12 +210,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         ),
                       ),
                     ]),
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      Expanded(child: _photoBox('Selfie *', _selfieBytes, () => _capture(true))),
+                      const SizedBox(width: 12),
+                      Expanded(child: _photoBox('Canopy', _canopyBytes, () => _capture(false))),
+                    ]),
                     const SizedBox(height: 8),
-                    const Text('Tap "Use my current location" to capture GPS. Selfie capture is added next.',
+                    const Text('Tap a box to capture with the camera. Photos upload once Firebase Storage is configured.',
                         style: TextStyle(color: Colors.black54, fontSize: 12)),
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                        onPressed: _checkIn, icon: const Icon(Icons.login), label: const Text('Check in')),
+                      onPressed: _submitting ? null : _checkIn,
+                      icon: const Icon(Icons.login),
+                      label: Text(_submitting ? 'Saving…' : 'Check in'),
+                    ),
                   ],
                 ),
     );
