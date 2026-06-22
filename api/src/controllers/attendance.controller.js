@@ -1,5 +1,13 @@
 import * as service from '../services/attendance.service.js';
 
+export async function list(req, res, next) {
+  try {
+    res.json(await service.listForReview(req.user));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function checkIn(req, res, next) {
   try {
     const row = await service.checkIn(req.body);

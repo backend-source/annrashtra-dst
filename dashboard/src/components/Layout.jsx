@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import RefillApprovals from '../pages/RefillApprovals.jsx';
 import Leads from '../pages/Leads.jsx';
+import Attendance from '../pages/Attendance.jsx';
 import Products from '../pages/Products.jsx';
 
 const TABS = [
   { id: 'refills', label: 'Refill Approvals', el: RefillApprovals },
+  { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },
   { id: 'products', label: 'Products & Pricing', el: Products },
 ];

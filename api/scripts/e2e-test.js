@@ -142,6 +142,10 @@ assert('check-out idempotent (same time)', co2.body.check_out_at === co.body.che
 const badVerify = await post(`/api/attendance/${ci.body.id}/verify`, {}, token);
 assert('promoter verify forbidden (403)', badVerify.status === 403, `status=${badVerify.status}`);
 const sup = await login(SUPERVISOR);
+const attList = await get('/api/attendance', sup.token);
+assert('supervisor attendance list includes check-in', Array.isArray(attList.body) && attList.body.some((a) => a.id === ci.body.id), `n=${attList.body?.length}`);
+const attForbidden = await get('/api/attendance', token);
+assert('promoter cannot list attendance (403)', attForbidden.status === 403, `status=${attForbidden.status}`);
 const ok = await post(`/api/attendance/${ci.body.id}/verify`, {}, sup.token);
 assert('supervisor verify sets verified_by', ok.status === 200 && ok.body.verified_by === sup.user.id, `status=${ok.status}`);
 

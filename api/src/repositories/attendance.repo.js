@@ -47,6 +47,30 @@ export async function checkOut(id) {
   return rows[0] || null;
 }
 
+// Recent check-ins for review. Supervisors see only their promoters' records;
+// admins (supervisorId = null) see all.
+export async function listForReview({ supervisorId }) {
+  const params = [];
+  let where = 'a.check_in_at IS NOT NULL';
+  if (supervisorId) {
+    params.push(supervisorId);
+    where += ` AND u.supervisor_id = $${params.length}`;
+  }
+  const { rows } = await query(
+    `SELECT a.id, a.shift, a.check_in_at, a.check_out_at, a.gps_lat, a.gps_lng,
+            a.in_radius, a.selfie_url, a.canopy_photo_url, a.verified_by,
+            u.name AS promoter_name, l.name AS location_name, v.name AS verified_by_name
+     FROM attendance a
+     JOIN users u ON u.id = a.promoter_id
+     LEFT JOIN locations l ON l.id = a.location_id
+     LEFT JOIN users v ON v.id = a.verified_by
+     WHERE ${where}
+     ORDER BY a.check_in_at DESC LIMIT 100`,
+    params,
+  );
+  return rows;
+}
+
 // Supervisor verifies the canopy activity for an attendance record.
 export async function setVerifiedBy(id, supervisorId) {
   const { rows } = await query(

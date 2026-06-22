@@ -68,6 +68,12 @@ export async function checkIn(input) {
   }
 }
 
+// Supervisor/admin review list. Supervisors are scoped to their own promoters.
+export function listForReview(user) {
+  const supervisorId = user.role === 'supervisor' ? user.id : null;
+  return repo.listForReview({ supervisorId });
+}
+
 export async function checkOut(id, user) {
   const att = await repo.getById(id);
   if (!att) throw new ApiError(404, 'Attendance not found');
