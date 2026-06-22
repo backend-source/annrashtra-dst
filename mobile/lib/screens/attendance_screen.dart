@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../services/api_client.dart';
+import '../services/location_service.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -17,7 +18,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final _lat = TextEditingController();
   final _lng = TextEditingController();
   bool _loading = true;
+  bool _locating = false;
   String? _error;
+
+  Future<void> _useGps() async {
+    setState(() => _locating = true);
+    try {
+      final loc = await LocationService.current();
+      _lat.text = loc.lat.toStringAsFixed(6);
+      _lng.text = loc.lng.toStringAsFixed(6);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   @override
   void initState() {
@@ -102,6 +121,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       onChanged: (v) => setState(() => _shift = v ?? 'morning'),
                     ),
                     const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _locating ? null : _useGps,
+                      icon: const Icon(Icons.my_location),
+                      label: Text(_locating ? 'Locating…' : 'Use my current location'),
+                    ),
+                    const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
                         child: TextField(
@@ -120,7 +145,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       ),
                     ]),
                     const SizedBox(height: 8),
-                    const Text('On device, GPS + selfie are captured automatically.',
+                    const Text('Tap "Use my current location" to capture GPS. Selfie capture is added next.',
                         style: TextStyle(color: Colors.black54, fontSize: 12)),
                     const SizedBox(height: 16),
                     FilledButton.icon(
