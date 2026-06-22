@@ -64,7 +64,8 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
    - ✅ MSG91 adapter: dev mode (logs, with a failure sentinel) verified; **real HTTP calls wired but UNTESTED** until live auth key + DLT/approved templates exist. Login OTP-over-SMS uses the same adapter (dev logs to server.log).
    - ✅ Delivery webhook `POST /api/outbox/webhook` (public, optional `x-webhook-secret`): flips sent→delivered and uses **delivery** as the lead-confirmation trigger. Dev auto-simulates delivery; prod awaits the MSG91 callback. Verified.
    - ⬜ Firebase Storage upload handling; ⬜ Razorpay; ⬜ live MSG91 credentials/templates.
-4. **Dashboard** — ✅ scaffolded + click-tested (refill approvals, lead verify/convert, products pricing).
+4. **Dashboard** — ✅ scaffolded + click-tested: Overview (role-scoped reports), refill approvals, canopy verification, lead verify/convert, products pricing.
+   - **Reports**: `GET /api/reports/overview` scoped per role (promoter self / supervisor team / admin org-wide) → KPIs, 7-day sales, lead funnel, promoter leaderboard. Mobile shows a promoter "My week" card. Export (CSV/PDF) and scheduled email/WhatsApp digests are still ⬜.
 5. **Mobile** — ✅ offline-first foundation built + verified (`flutter analyze` clean, unit test + `flutter build web` pass).
    - OTP login (promoter-only), durable Hive write-queue with device-generated `client_uuid`, idempotent sync engine, connectivity auto-sync on reconnect.
    - Flows: lead capture, sale (server-priced), attendance check-in, opening stock + refill request, sync-queue viewer. Reads (products/locations) cached for offline.
