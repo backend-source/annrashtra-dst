@@ -68,7 +68,9 @@ Plus safe §B fixes: `UNIQUE (promoter_id, shift, day)` on attendance, a sign `C
 5. **Mobile** — ✅ offline-first foundation built + verified (`flutter analyze` clean, unit test + `flutter build web` pass).
    - OTP login (promoter-only), durable Hive write-queue with device-generated `client_uuid`, idempotent sync engine, connectivity auto-sync on reconnect.
    - Flows: lead capture, sale (server-priced), attendance check-in, opening stock + refill request, sync-queue viewer. Reads (products/locations) cached for offline.
-   - ⬜ Still needed for Android: real GPS (geolocator) + selfie/canopy camera + Firebase upload (currently manual GPS / placeholder URL), QR-lead OTP flow, and on-device/APK testing (needs Android Studio / Android SDK — not installed here).
+   - ✅ Android toolchain set up (Android Studio + SDK 36 + cmdline-tools + licenses); debug APK builds clean.
+   - ✅ Real GPS (geolocator, permission handling + manual fallback) and ✅ camera capture (image_picker: selfie + canopy with preview) — both APK-verified. Photo upload goes through a `PhotoUploader` abstraction, currently a stub (`pending-upload://…`).
+   - ⬜ Firebase Storage upload (swap StubPhotoUploader → FirebaseUploader once a Firebase project exists); ⬜ QR flow (promoter QR display + customer-facing lead/OTP — partly a separate web piece); ⬜ on-device run + release APK signing.
 
 ### Verified so far (`api/scripts/e2e-test.js`, re-runnable, 38/38)
 auth → JWT • lead capture (unverified, idempotent, dup-mobile 409) • sale (server-side
