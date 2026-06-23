@@ -46,3 +46,50 @@ export async function overview(ids) {
     leaderboard: board.rows.map((r) => ({ id: r.id, name: r.name, revenue: n(r.revenue), points: r.points })),
   };
 }
+
+// ---- CSV export row sources (inclusive date range on the IST business day) ----
+export async function exportSales(ids, from, to) {
+  const { rows } = await query(
+    `SELECT s.invoice_no, to_char(s.created_at,'YYYY-MM-DD HH24:MI') AS dt, u.name AS promoter,
+            s.payment_mode, s.total,
+            (SELECT string_agg(p.sku || ' x' || si.qty, '; ')
+             FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = s.id) AS items
+     FROM sales s JOIN users u ON u.id = s.promoter_id
+     WHERE s.promoter_id = ANY($1) AND s.created_at::date BETWEEN $2 AND $3
+     ORDER BY s.created_at DESC`, [ids, from, to]);
+  return rows;
+}
+
+export async function exportLeads(ids, from, to) {
+  const { rows } = await query(
+    `SELECT u.name AS promoter, l.name, l.mobile, l.health_concern, l.product_interest,
+            l.source, l.verify_status, l.status, to_char(l.created_at,'YYYY-MM-DD HH24:MI') AS dt
+     FROM leads l JOIN users u ON u.id = l.promoter_id
+     WHERE l.promoter_id = ANY($1) AND l.created_at::date BETWEEN $2 AND $3
+     ORDER BY l.created_at DESC`, [ids, from, to]);
+  return rows;
+}
+
+export async function exportAttendance(ids, from, to) {
+  const { rows } = await query(
+    `SELECT u.name AS promoter, loc.name AS location, a.shift,
+            to_char(a.check_in_at,'YYYY-MM-DD HH24:MI') AS checkin,
+            to_char(a.check_out_at,'YYYY-MM-DD HH24:MI') AS checkout,
+            a.in_radius, v.name AS verified_by
+     FROM attendance a JOIN users u ON u.id = a.promoter_id
+     LEFT JOIN locations loc ON loc.id = a.location_id
+     LEFT JOIN users v ON v.id = a.verified_by
+     WHERE a.promoter_id = ANY($1) AND a.check_in_at::date BETWEEN $2 AND $3
+     ORDER BY a.check_in_at DESC`, [ids, from, to]);
+  return rows;
+}
+
+export async function exportInventory(ids, from, to) {
+  const { rows } = await query(
+    `SELECT u.name AS promoter, p.sku, i.opening, i.refill, i.sold, i.closing,
+            to_char(i.day,'YYYY-MM-DD') AS day
+     FROM inventory i JOIN users u ON u.id = i.promoter_id JOIN products p ON p.id = i.product_id
+     WHERE i.promoter_id = ANY($1) AND i.day BETWEEN $2::date AND $3::date
+     ORDER BY i.day DESC, p.sku`, [ids, from, to]);
+  return rows;
+}

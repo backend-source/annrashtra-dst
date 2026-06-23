@@ -241,6 +241,13 @@ assert('supervisor overview (team-scoped)', repS.status === 200 && repS.body.sco
 const repA = await get('/api/reports/overview', admin.token);
 assert('admin overview (org-wide, 7-day series)', repA.status === 200 && repA.body.scope === 'admin' && Array.isArray(repA.body.sales_7d) && repA.body.sales_7d.length === 7, `days=${repA.body?.sales_7d?.length}`);
 
+// CSV export (download)
+const expRes = await fetch(`${BASE}/api/reports/export/sales?from=2000-01-01&to=2030-01-01`, { headers: { authorization: `Bearer ${admin.token}` } });
+const expText = await expRes.text();
+assert('admin sales CSV export', expRes.status === 200 && expText.startsWith('Invoice,Date,Promoter'), `status=${expRes.status}`);
+const expNoAuth = await fetch(`${BASE}/api/reports/export/sales`);
+assert('export requires auth (401)', expNoAuth.status === 401, `status=${expNoAuth.status}`);
+
 // ---- (phase 3) outbox sender: invoice + lead confirmation, retry, idempotency ----
 // a fresh unverified lead -> enqueues a 'lead_confirmation' message
 const freshUuid = randomUUID();

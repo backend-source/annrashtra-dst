@@ -30,3 +30,24 @@ export const api = {
   post: (p, b) => req('POST', p, b),
   patch: (p, b) => req('PATCH', p, b),
 };
+
+// Fetch a file with auth and trigger a browser download (a plain <a> can't send
+// the bearer token, so we fetch -> blob -> click).
+export async function downloadFile(path, filename) {
+  const res = await fetch(BASE + path, {
+    headers: auth.token() ? { authorization: `Bearer ${auth.token()}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
