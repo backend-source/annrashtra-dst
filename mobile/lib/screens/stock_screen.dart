@@ -96,6 +96,7 @@ class _StockScreenState extends State<StockScreen> {
       ),
     );
     if (qty == null || qty <= 0) return;
+    if (!mounted) return;
     try {
       await context.read<AppState>().confirmRefill(req['id'] as String, qty);
       if (!mounted) return;
