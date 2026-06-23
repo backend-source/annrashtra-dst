@@ -3,6 +3,7 @@ import { withTransaction } from '../config/db.js';
 import * as productsRepo from '../repositories/products.repo.js';
 import * as salesRepo from '../repositories/sales.repo.js';
 import * as outboxRepo from '../repositories/outbox.repo.js';
+import { isValidMobile } from '../utils/validators.js';
 
 const VALID_PAYMENT = new Set(['cash', 'upi']);
 
@@ -20,6 +21,16 @@ export async function createSale(input) {
   for (const it of input.items) {
     if (!it.product_id || !Number.isInteger(it.qty) || it.qty <= 0) {
       throw new ApiError(400, 'each item needs product_id and a positive integer qty');
+    }
+  }
+  // Customer name + a valid 10-digit mobile are mandatory unless an existing
+  // customer record is referenced directly (customer_id).
+  if (!input.customer_id) {
+    if (!input.customer_name || !input.customer_name.trim()) {
+      throw new ApiError(400, 'Customer name is required');
+    }
+    if (!isValidMobile(input.customer_mobile)) {
+      throw new ApiError(400, 'Customer mobile must be exactly 10 digits');
     }
   }
 

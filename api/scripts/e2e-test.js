@@ -111,6 +111,14 @@ assert('one stock_deduction of -2', stx.n === 1 && stx.q === -2, `n=${stx.n} q=$
 const ob = (await db.query(`SELECT count(*)::int n FROM outbox_messages WHERE sale_id=$1`, [sale1.body.id])).rows[0];
 assert('one invoice queued in outbox', ob.n === 1, `n=${ob.n}`);
 
+// validation: sale needs customer name + 10-digit mobile (no customer_id)
+const badSale1 = await post('/api/sales', { client_uuid: randomUUID(), payment_mode: 'cash', items: [{ product_id: product.id, qty: 1 }] }, token);
+assert('sale without customer rejected (400)', badSale1.status === 400, `status=${badSale1.status}`);
+const badSale2 = await post('/api/sales', { client_uuid: randomUUID(), payment_mode: 'cash', customer_name: 'X', customer_mobile: '12345', items: [{ product_id: product.id, qty: 1 }] }, token);
+assert('sale with bad mobile rejected (400)', badSale2.status === 400, `status=${badSale2.status}`);
+const badLead = await post('/api/leads', { client_uuid: randomUUID(), mobile: '12345', name: 'X' }, token);
+assert('lead with bad mobile rejected (400)', badLead.status === 400, `status=${badLead.status}`);
+
 // ---- attendance (territory lock, idempotency, override, verify) ----
 const near = { gps_lat: loc.lat, gps_lng: loc.lng };
 const far = { gps_lat: Number(loc.lat) + 0.02, gps_lng: Number(loc.lng) }; // ~2.2 km north
@@ -251,7 +259,7 @@ assert('export requires auth (401)', expNoAuth.status === 401, `status=${expNoAu
 // ---- (phase 3) outbox sender: invoice + lead confirmation, retry, idempotency ----
 // a fresh unverified lead -> enqueues a 'lead_confirmation' message
 const freshUuid = randomUUID();
-const freshMobile = '76000' + String(Date.now()).slice(-6);
+const freshMobile = '7600' + String(Date.now()).slice(-6);
 const fresh = await post('/api/leads', { client_uuid: freshUuid, mobile: freshMobile, name: 'Outbox Lead' }, token);
 assert('fresh lead created unverified', fresh.status === 201 && fresh.body.verify_status === 'unverified', `status=${fresh.status}`);
 const qLead = (await db.query(`SELECT status FROM outbox_messages WHERE lead_id=$1 AND template='lead_confirmation'`, [fresh.body.id])).rows[0];
@@ -294,7 +302,7 @@ assert('second pass: failed msg retried (attempts=2)', failMsg2.attempts === 2, 
 // A fresh lead whose confirmation we mark 'sent' by hand (simulating a prod worker
 // send that awaits the provider callback), then deliver via the webhook.
 const wlUuid = randomUUID();
-const wlMobile = '75000' + String(Date.now()).slice(-6);
+const wlMobile = '7500' + String(Date.now()).slice(-6);
 const wlead = await post('/api/leads', { client_uuid: wlUuid, mobile: wlMobile, name: 'Webhook Lead' }, token);
 const providerId = `wh-${wlUuid.slice(0, 8)}`;
 await db.query(

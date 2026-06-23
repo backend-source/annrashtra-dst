@@ -22,7 +22,7 @@ try {
   await db.query(`DELETE FROM leads WHERE promoter_id=$1`, [pid]);
 
   // ---- leads: two unverified + one whatsapp_confirmed (convertible) ----
-  const s = String(Date.now()).slice(-5);
+  const s = String(Date.now()).slice(-6);
   await db.query(
     `INSERT INTO leads (promoter_id, name, mobile, health_concern, product_interest, verify_status, client_uuid)
      VALUES

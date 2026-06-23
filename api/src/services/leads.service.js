@@ -4,6 +4,7 @@ import { POINTS } from '../config/points.js';
 import * as leadsRepo from '../repositories/leads.repo.js';
 import * as pointsRepo from '../repositories/points.repo.js';
 import * as outboxRepo from '../repositories/outbox.repo.js';
+import { isValidMobile } from '../utils/validators.js';
 
 const VERIFY_STATUSES = new Set(['unverified', 'whatsapp_confirmed', 'otp_verified']);
 const VERIFIED = new Set(['whatsapp_confirmed', 'otp_verified']);
@@ -13,8 +14,8 @@ const STATUSES = new Set(['new', 'contacted', 'converted', 'dropped']);
 // WhatsApp delivery later moves them to 'whatsapp_confirmed'; QR leads use customer
 // OTP -> 'otp_verified' (handled in the QR/OTP flow, not here).
 export async function captureManualLead(input) {
-  if (!input.mobile) throw new ApiError(400, 'mobile is required');
   if (!input.promoter_id) throw new ApiError(400, 'promoter_id is required');
+  if (!isValidMobile(input.mobile)) throw new ApiError(400, 'mobile must be exactly 10 digits');
 
   // Friendly duplicate handling: leads.mobile is globally unique. If this number
   // is already a lead and it's a genuine new client_uuid, surface a 409 rather

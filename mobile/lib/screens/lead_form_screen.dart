@@ -53,7 +53,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
               controller: _mobile,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(labelText: 'Mobile *', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().length < 10) ? 'Enter a valid mobile' : null,
+              validator: (v) => RegExp(r'^\d{10}$').hasMatch((v ?? '').trim()) ? null : 'Enter a 10-digit mobile',
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
