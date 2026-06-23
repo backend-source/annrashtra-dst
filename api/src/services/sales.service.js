@@ -46,10 +46,20 @@ export async function createSale(input) {
     const istDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD in IST
     const invoiceNo = `INV-${istDate}-${input.client_uuid.slice(0, 8)}`;
 
+    // Link the customer: if a mobile is given, upsert the customer master (by mobile,
+    // with name) and use that id — so name + mobile appear on the sale and in reports.
+    let customerId = input.customer_id ?? null;
+    if (!customerId && input.customer_mobile) {
+      customerId = await salesRepo.upsertCustomer(client, {
+        mobile: input.customer_mobile,
+        name: input.customer_name,
+      });
+    }
+
     const sale = await salesRepo.insertSale(client, {
       promoter_id: input.promoter_id,
       location_id: input.location_id,
-      customer_id: input.customer_id,
+      customer_id: customerId,
       invoice_no: invoiceNo,
       payment_mode: input.payment_mode,
       total,
@@ -72,7 +82,7 @@ export async function createSale(input) {
     }
 
     // Queue the WhatsApp invoice (sent later by the outbox worker, phase 3).
-    const mobile = input.customer_mobile || await salesRepo.getCustomerMobile(client, input.customer_id);
+    const mobile = input.customer_mobile || await salesRepo.getCustomerMobile(client, customerId);
     if (mobile) {
       await outboxRepo.enqueue(client, {
         channel: 'whatsapp',

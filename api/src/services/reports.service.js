@@ -13,7 +13,7 @@ function toCsv(headers, rows) {
 
 // Per-type CSV spec: which repo query, the header row, and the columns to pull.
 const EXPORTS = {
-  sales: { fn: repo.exportSales, headers: ['Invoice', 'Date', 'Promoter', 'Payment', 'Total', 'Items'], keys: ['invoice_no', 'dt', 'promoter', 'payment_mode', 'total', 'items'] },
+  sales: { fn: repo.exportSales, headers: ['Invoice', 'Date', 'Promoter', 'Customer', 'Mobile', 'Payment', 'Total', 'Items'], keys: ['invoice_no', 'dt', 'promoter', 'customer', 'customer_mobile', 'payment_mode', 'total', 'items'] },
   leads: { fn: repo.exportLeads, headers: ['Promoter', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
   attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by'], keys: ['promoter', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by'] },
   inventory: { fn: repo.exportInventory, headers: ['Promoter', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },

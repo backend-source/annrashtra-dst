@@ -51,10 +51,12 @@ export async function overview(ids) {
 export async function exportSales(ids, from, to) {
   const { rows } = await query(
     `SELECT s.invoice_no, to_char(s.created_at,'YYYY-MM-DD HH24:MI') AS dt, u.name AS promoter,
+            c.name AS customer, c.mobile AS customer_mobile,
             s.payment_mode, s.total,
             (SELECT string_agg(p.sku || ' x' || si.qty, '; ')
              FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = s.id) AS items
      FROM sales s JOIN users u ON u.id = s.promoter_id
+     LEFT JOIN customers c ON c.id = s.customer_id
      WHERE s.promoter_id = ANY($1) AND s.created_at::date BETWEEN $2 AND $3
      ORDER BY s.created_at DESC`, [ids, from, to]);
   return rows;

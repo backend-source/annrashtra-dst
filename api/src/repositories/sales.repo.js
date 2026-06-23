@@ -58,6 +58,19 @@ export async function addInventorySold(client, inv) {
   );
 }
 
+// Upsert the customer master by mobile (mobile is unique). Fills in the name if a
+// new one is provided, keeping any existing name otherwise. Returns the id.
+export async function upsertCustomer(client, { mobile, name }) {
+  const { rows } = await client.query(
+    `INSERT INTO customers (name, mobile, lead_source)
+     VALUES ($1, $2, 'sale')
+     ON CONFLICT (mobile) DO UPDATE SET name = COALESCE(EXCLUDED.name, customers.name)
+     RETURNING id`,
+    [name ?? null, mobile],
+  );
+  return rows[0].id;
+}
+
 export async function getCustomerMobile(client, customerId) {
   if (!customerId) return null;
   const { rows } = await client.query('SELECT mobile FROM customers WHERE id = $1', [customerId]);

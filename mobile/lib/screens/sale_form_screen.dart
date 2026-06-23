@@ -12,6 +12,7 @@ class SaleFormScreen extends StatefulWidget {
 
 class _SaleFormScreenState extends State<SaleFormScreen> {
   final _customer = TextEditingController();
+  final _customerName = TextEditingController();
   String _payment = 'cash';
   List<Map<String, dynamic>> _products = [];
   final Map<String, int> _qty = {}; // product_id -> qty
@@ -63,6 +64,7 @@ class _SaleFormScreenState extends State<SaleFormScreen> {
       body: {
         'payment_mode': _payment,
         if (_customer.text.trim().isNotEmpty) 'customer_mobile': _customer.text.trim(),
+        if (_customerName.text.trim().isNotEmpty) 'customer_name': _customerName.text.trim(),
         'items': items,
       },
     );
@@ -90,6 +92,12 @@ class _SaleFormScreenState extends State<SaleFormScreen> {
                           onChanged: (q) => setState(() => _qty[p['id']] = q),
                         )),
                     const SizedBox(height: 8),
+                    TextField(
+                      controller: _customerName,
+                      decoration: const InputDecoration(
+                          labelText: 'Customer name', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _customer,
                       keyboardType: TextInputType.phone,
