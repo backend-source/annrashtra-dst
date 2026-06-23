@@ -58,10 +58,6 @@ class _SaleFormScreenState extends State<SaleFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one item')));
       return;
     }
-    if (_customerName.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer name is required')));
-      return;
-    }
     if (!RegExp(r'^\d{10}$').hasMatch(_customer.text.trim())) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer mobile must be 10 digits')));
       return;
@@ -103,7 +99,7 @@ class _SaleFormScreenState extends State<SaleFormScreen> {
                     TextField(
                       controller: _customerName,
                       decoration: const InputDecoration(
-                          labelText: 'Customer name *', border: OutlineInputBorder()),
+                          labelText: 'Customer name', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     TextField(

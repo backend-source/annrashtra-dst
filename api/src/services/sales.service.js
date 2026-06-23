@@ -23,15 +23,11 @@ export async function createSale(input) {
       throw new ApiError(400, 'each item needs product_id and a positive integer qty');
     }
   }
-  // Customer name + a valid 10-digit mobile are mandatory unless an existing
-  // customer record is referenced directly (customer_id).
-  if (!input.customer_id) {
-    if (!input.customer_name || !input.customer_name.trim()) {
-      throw new ApiError(400, 'Customer name is required');
-    }
-    if (!isValidMobile(input.customer_mobile)) {
-      throw new ApiError(400, 'Customer mobile must be exactly 10 digits');
-    }
+  // A valid 10-digit customer mobile is mandatory unless an existing customer
+  // record is referenced directly (customer_id). Name is captured when provided;
+  // TODO: make name mandatory once the updated app (with the name field) is shipped.
+  if (!input.customer_id && !isValidMobile(input.customer_mobile)) {
+    throw new ApiError(400, 'Customer mobile must be exactly 10 digits');
   }
 
   return withTransaction(async (client) => {
