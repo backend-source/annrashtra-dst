@@ -171,34 +171,46 @@ const cyc = await get('/api/inventory', token);
 const row1 = cyc.body.find((r) => r.product_id === product2.id);
 assert('daily cycle lists opening=50', !!row1 && row1.opening === 50, `opening=${row1?.opening}`);
 
-// promoter requests refill (idempotent), cannot self-approve; supervisor approves
+// promoter requests refill; ONLY admin approves; promoter confirms actual delivery
+const admin = await login(ADMIN);
 const rrUuid = randomUUID();
 const rr = await post('/api/inventory/refill-requests', { client_uuid: rrUuid, product_id: product2.id, qty: 20 }, token);
 assert('refill request 201 pending', rr.status === 201 && rr.body.status === 'pending', `status=${rr.status}`);
 const rrReplay = await post('/api/inventory/refill-requests', { client_uuid: rrUuid, product_id: product2.id, qty: 20 }, token);
 assert('refill request replay (same id)', rrReplay.body.id === rr.body.id);
 
-const badApprove = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, token);
-assert('promoter approve forbidden (403)', badApprove.status === 403, `status=${badApprove.status}`);
+// only admin can approve
+const promoApprove = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, token);
+assert('promoter approve forbidden (403)', promoApprove.status === 403, `status=${promoApprove.status}`);
+const supApprove = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, sup.token);
+assert('supervisor approve forbidden (403)', supApprove.status === 403, `status=${supApprove.status}`);
+const appr = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, admin.token);
+assert('admin approve -> approved', appr.status === 200 && appr.body.status === 'approved' && appr.body.decided_by === admin.user.id, `status=${appr.status}`);
 
-const appr = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, sup.token);
-assert('supervisor approve -> approved', appr.status === 200 && appr.body.status === 'approved' && appr.body.decided_by === sup.user.id && !!appr.body.stock_txn_id, `status=${appr.status}`);
-const appr2 = await post(`/api/inventory/refill-requests/${rr.body.id}/approve`, {}, sup.token);
-assert('approve idempotent (same stock_txn)', appr2.body.status === 'approved' && appr2.body.stock_txn_id === appr.body.stock_txn_id);
+// approval does NOT add stock yet
+const cycA = await get('/api/inventory', token);
+const rowA = cycA.body.find((r) => r.product_id === product2.id);
+assert('approve does not bump refill yet', !!rowA && rowA.refill === 0, `refill=${rowA?.refill}`);
+
+// promoter confirms delivery with the ACTUAL qty 18 (differs from requested 20)
+const conf = await post(`/api/inventory/refill-requests/${rr.body.id}/confirm`, { delivered_qty: 18 }, token);
+assert('promoter confirm -> delivered (actual 18)', conf.status === 200 && conf.body.status === 'delivered' && conf.body.delivered_qty === 18, `status=${conf.status}`);
+const confReplay = await post(`/api/inventory/refill-requests/${rr.body.id}/confirm`, { delivered_qty: 18 }, token);
+assert('confirm idempotent (same stock_txn)', confReplay.body.stock_txn_id === conf.body.stock_txn_id);
 
 const cyc2 = await get('/api/inventory', token);
 const row2 = cyc2.body.find((r) => r.product_id === product2.id);
-assert('inventory.refill bumped to 20', !!row2 && row2.refill === 20, `refill=${row2?.refill}`);
-assert('closing = opening+refill-sold (70)', !!row2 && row2.closing === 70, `closing=${row2?.closing}`);
+assert('inventory.refill bumped by delivered (18)', !!row2 && row2.refill === 18, `refill=${row2?.refill}`);
+assert('closing = opening+refill-sold (68)', !!row2 && row2.closing === 68, `closing=${row2?.closing}`);
 
-const rtx = (await db.query(`SELECT type, quantity, approved_by FROM stock_transactions WHERE id=$1`, [appr.body.stock_txn_id])).rows[0];
-assert('refill ledger row +20, approved_by supervisor', !!rtx && rtx.type === 'refill' && rtx.quantity === 20 && rtx.approved_by === sup.user.id);
+const rtx = (await db.query(`SELECT type, quantity, approved_by FROM stock_transactions WHERE id=$1`, [conf.body.stock_txn_id])).rows[0];
+assert('refill ledger row +18, approved_by admin', !!rtx && rtx.type === 'refill' && rtx.quantity === 18 && rtx.approved_by === admin.user.id);
 
-// reject path
+// reject path (admin only)
 const rr3 = await post('/api/inventory/refill-requests', { client_uuid: randomUUID(), product_id: product2.id, qty: 5 }, token);
-const rej = await post(`/api/inventory/refill-requests/${rr3.body.id}/reject`, { note: 'not needed' }, sup.token);
-assert('supervisor reject -> rejected', rej.status === 200 && rej.body.status === 'rejected', `status=${rej.status}`);
-const apprRej = await post(`/api/inventory/refill-requests/${rr3.body.id}/approve`, {}, sup.token);
+const rej = await post(`/api/inventory/refill-requests/${rr3.body.id}/reject`, { note: 'not needed' }, admin.token);
+assert('admin reject -> rejected', rej.status === 200 && rej.body.status === 'rejected', `status=${rej.status}`);
+const apprRej = await post(`/api/inventory/refill-requests/${rr3.body.id}/approve`, {}, admin.token);
 assert('approve after reject -> 409', apprRej.status === 409, `status=${apprRej.status}`);
 
 // ---- (a) lead verify/convert -> points, audit_log, products pricing ----
@@ -227,8 +239,7 @@ assert('audit_log has lead writes', auLead.n >= 1, `n=${auLead.n}`);
 const auSale = (await db.query(`SELECT count(*)::int n FROM audit_log WHERE entity='sales' AND entity_id=$1`, [sale1.body.id])).rows[0];
 assert('audit_log has sale write', auSale.n >= 1, `n=${auSale.n}`);
 
-// products: list (any role) + admin-only price edit
-const admin = await login(ADMIN);
+// products: list (any role) + admin-only price edit (admin logged in above)
 const prods = await get('/api/products', admin.token);
 assert('products list returns 2', Array.isArray(prods.body) && prods.body.length === 2, `len=${prods.body?.length}`);
 const priceEdit = await patch(`/api/products/${product2.id}`, { price: 799 }, admin.token);

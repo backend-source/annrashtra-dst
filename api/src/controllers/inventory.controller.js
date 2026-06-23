@@ -48,3 +48,12 @@ export async function rejectRefill(req, res, next) {
     next(err);
   }
 }
+
+export async function confirmRefill(req, res, next) {
+  try {
+    const qty = Number(req.body?.delivered_qty);
+    res.json(await service.confirmRefill(req.params.id, req.user, qty));
+  } catch (err) {
+    next(err);
+  }
+}

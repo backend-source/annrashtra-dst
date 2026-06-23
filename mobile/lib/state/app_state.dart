@@ -92,6 +92,17 @@ class AppState extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> products() => _listCached('/api/products', 'products');
   Future<List<Map<String, dynamic>>> locations() => _listCached('/api/locations', 'locations');
 
+  // Refill requests for this promoter (online).
+  Future<List<Map<String, dynamic>>> refillRequests() async {
+    final res = await api.get('/api/inventory/refill-requests') as List;
+    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  // Promoter confirms delivery of an approved refill with the actual quantity (online).
+  Future<void> confirmRefill(String id, int deliveredQty) async {
+    await api.post('/api/inventory/refill-requests/$id/confirm', {'delivered_qty': deliveredQty});
+  }
+
   // The promoter's own overview (revenue, leads, points...). Cached for offline.
   Future<Map<String, dynamic>?> overview() async {
     try {

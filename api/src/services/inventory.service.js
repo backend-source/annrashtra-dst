@@ -48,21 +48,16 @@ export async function requestRefill(input) {
   });
 }
 
-// Supervisor/admin approves: writes the positive 'refill' ledger row (approved_by)
-// and bumps inventory.refill, all in one transaction. Idempotent if already approved.
+// Admin approves the request. No stock is added yet — the promoter confirms the
+// actual delivery later. Idempotent if already approved.
 export async function approveRefill(id, user) {
   return withTransaction(async (client) => {
     const reqRow = await repo.getRequestForUpdate(client, id);
     if (!reqRow) throw new ApiError(404, 'Refill request not found');
     if (reqRow.status === 'approved') return reqRow;          // idempotent
     if (reqRow.status === 'rejected') throw new ApiError(409, 'Request was already rejected');
-
-    const stockTxnId = await repo.insertRefillTxn(client, {
-      promoter_id: reqRow.promoter_id, product_id: reqRow.product_id,
-      qty: reqRow.qty, approved_by: user.id,
-    });
-    await repo.addRefill(client, { promoter_id: reqRow.promoter_id, product_id: reqRow.product_id, qty: reqRow.qty });
-    return repo.markDecided(client, { id, status: 'approved', decidedBy: user.id, stockTxnId });
+    if (reqRow.status === 'delivered') throw new ApiError(409, 'Request was already delivered');
+    return repo.markDecided(client, { id, status: 'approved', decidedBy: user.id });
   });
 }
 
@@ -71,8 +66,34 @@ export async function rejectRefill(id, user, note) {
     const reqRow = await repo.getRequestForUpdate(client, id);
     if (!reqRow) throw new ApiError(404, 'Refill request not found');
     if (reqRow.status === 'rejected') return reqRow;          // idempotent
-    if (reqRow.status === 'approved') throw new ApiError(409, 'Request was already approved');
+    if (reqRow.status !== 'pending') throw new ApiError(409, `Cannot reject a ${reqRow.status} request`);
     return repo.markDecided(client, { id, status: 'rejected', decidedBy: user.id, note });
+  });
+}
+
+// Promoter confirms delivery with the ACTUAL quantity received from the factory.
+// This is when stock actually enters inventory (the 'refill' ledger row + the
+// inventory.refill bump use delivered_qty). Idempotent if already delivered.
+export async function confirmRefill(id, user, deliveredQty) {
+  if (!Number.isInteger(deliveredQty) || deliveredQty <= 0) {
+    throw new ApiError(400, 'delivered_qty must be a positive integer');
+  }
+  return withTransaction(async (client) => {
+    const reqRow = await repo.getRequestForUpdate(client, id);
+    if (!reqRow) throw new ApiError(404, 'Refill request not found');
+    // Promoters can only confirm their own deliveries.
+    if (user.role === 'promoter' && reqRow.promoter_id !== user.id) {
+      throw new ApiError(403, 'Cannot confirm another promoter\'s delivery');
+    }
+    if (reqRow.status === 'delivered') return reqRow;         // idempotent
+    if (reqRow.status !== 'approved') throw new ApiError(409, `Only approved requests can be confirmed (status: ${reqRow.status})`);
+
+    const stockTxnId = await repo.insertRefillTxn(client, {
+      promoter_id: reqRow.promoter_id, product_id: reqRow.product_id,
+      qty: deliveredQty, approved_by: reqRow.decided_by,
+    });
+    await repo.addRefill(client, { promoter_id: reqRow.promoter_id, product_id: reqRow.product_id, qty: deliveredQty });
+    return repo.markDelivered(client, { id, deliveredQty, stockTxnId });
   });
 }
 

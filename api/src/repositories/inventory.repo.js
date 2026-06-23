@@ -92,6 +92,17 @@ export async function markDecided(client, { id, status, decidedBy, note, stockTx
   return rows[0];
 }
 
+// Promoter confirms delivery with the actual quantity received.
+export async function markDelivered(client, { id, deliveredQty, stockTxnId }) {
+  const { rows } = await client.query(
+    `UPDATE refill_requests
+     SET status = 'delivered', delivered_qty = $2, delivered_at = now(), stock_txn_id = $3
+     WHERE id = $1 RETURNING *`,
+    [id, deliveredQty, stockTxnId],
+  );
+  return rows[0];
+}
+
 export async function listRequests({ status, promoterId }) {
   const where = [];
   const params = [];
