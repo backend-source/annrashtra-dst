@@ -4,12 +4,14 @@ import RefillApprovals from '../pages/RefillApprovals.jsx';
 import Leads from '../pages/Leads.jsx';
 import Attendance from '../pages/Attendance.jsx';
 import Products from '../pages/Products.jsx';
+import Locations from '../pages/Locations.jsx';
 
 const TABS = [
   { id: 'overview', label: 'Overview', el: Overview },
   { id: 'refills', label: 'Refill Approvals', el: RefillApprovals },
   { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },
+  { id: 'locations', label: 'Locations', el: Locations },
   { id: 'products', label: 'Products & Pricing', el: Products },
 ];
 

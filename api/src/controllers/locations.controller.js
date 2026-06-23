@@ -1,11 +1,24 @@
-import * as repo from '../repositories/locations.repo.js';
+import * as service from '../services/locations.service.js';
 
 export async function list(req, res, next) {
   try {
-    const rows = req.user.role === 'promoter'
-      ? await repo.listForPromoter(req.user.id)
-      : await repo.listAll();
-    res.json(rows);
+    res.json(await service.list(req.user));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function create(req, res, next) {
+  try {
+    res.status(201).json(await service.create(req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function update(req, res, next) {
+  try {
+    res.json(await service.update(req.params.id, req.body));
   } catch (err) {
     next(err);
   }

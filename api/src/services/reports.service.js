@@ -15,7 +15,7 @@ function toCsv(headers, rows) {
 const EXPORTS = {
   sales: { fn: repo.exportSales, headers: ['Invoice', 'Date', 'Promoter', 'Customer', 'Mobile', 'Payment', 'Total', 'Items'], keys: ['invoice_no', 'dt', 'promoter', 'customer', 'customer_mobile', 'payment_mode', 'total', 'items'] },
   leads: { fn: repo.exportLeads, headers: ['Promoter', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
-  attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by'], keys: ['promoter', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by'] },
+  attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by', 'Lat', 'Lng', 'Map'], keys: ['promoter', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by', 'gps_lat', 'gps_lng', 'map_url'] },
   inventory: { fn: repo.exportInventory, headers: ['Promoter', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },
 };
 

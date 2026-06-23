@@ -77,7 +77,10 @@ export async function exportAttendance(ids, from, to) {
     `SELECT u.name AS promoter, loc.name AS location, a.shift,
             to_char(a.check_in_at,'YYYY-MM-DD HH24:MI') AS checkin,
             to_char(a.check_out_at,'YYYY-MM-DD HH24:MI') AS checkout,
-            a.in_radius, v.name AS verified_by
+            a.in_radius, v.name AS verified_by,
+            a.gps_lat, a.gps_lng,
+            CASE WHEN a.gps_lat IS NOT NULL AND a.gps_lng IS NOT NULL
+                 THEN 'https://maps.google.com/?q=' || a.gps_lat || ',' || a.gps_lng END AS map_url
      FROM attendance a JOIN users u ON u.id = a.promoter_id
      LEFT JOIN locations loc ON loc.id = a.location_id
      LEFT JOIN users v ON v.id = a.verified_by

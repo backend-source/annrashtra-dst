@@ -84,6 +84,7 @@ await db.query(`DELETE FROM sales WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM leads WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM attendance WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM inventory WHERE promoter_id=$1`, [pid]);
+await db.query(`DELETE FROM locations WHERE name='E2E Spot'`);
 
 // ---- leads ----
 const leadUuid = randomUUID();
@@ -251,6 +252,18 @@ await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // res
 // promoter's assigned locations (used by the mobile attendance screen)
 const locs = await get('/api/locations', token);
 assert('promoter locations list includes Test Park', Array.isArray(locs.body) && locs.body.some((l) => l.id === loc.id), `n=${locs.body?.length}`);
+
+// locations admin (create/edit) + users list — admin only
+const newLoc = await post('/api/locations', { name: 'E2E Spot', type: 'gym', lat: 19.2, lng: 72.9, radius_m: 100 }, admin.token);
+assert('admin creates location', newLoc.status === 201 && newLoc.body.name === 'E2E Spot', `status=${newLoc.status}`);
+const promoCreate = await post('/api/locations', { name: 'X' }, token);
+assert('promoter cannot create location (403)', promoCreate.status === 403, `status=${promoCreate.status}`);
+const editLoc = await patch(`/api/locations/${newLoc.body.id}`, { radius_m: 150 }, admin.token);
+assert('admin edits location radius', editLoc.status === 200 && editLoc.body.radius_m === 150, `r=${editLoc.body?.radius_m}`);
+const usersList = await get('/api/users?role=promoter', admin.token);
+assert('admin lists promoters', Array.isArray(usersList.body) && usersList.body.length >= 1, `n=${usersList.body?.length}`);
+const usersForbidden = await get('/api/users?role=promoter', token);
+assert('promoter cannot list users (403)', usersForbidden.status === 403, `status=${usersForbidden.status}`);
 
 // reports overview — role-scoped
 const repP = await get('/api/reports/overview', token);

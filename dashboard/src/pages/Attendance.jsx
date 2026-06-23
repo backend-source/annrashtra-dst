@@ -33,7 +33,7 @@ export default function Attendance() {
       {data && data.length > 0 && (
         <table>
           <thead>
-            <tr><th>When</th><th>Promoter</th><th>Location</th><th>Shift</th><th>Territory</th><th>Photos</th><th>Status</th><th></th></tr>
+            <tr><th>When</th><th>Promoter</th><th>Location</th><th>Shift</th><th>Territory</th><th>Map</th><th>Photos</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             {data.map((a) => (
@@ -43,6 +43,11 @@ export default function Attendance() {
                 <td>{a.location_name || '—'}</td>
                 <td>{a.shift}</td>
                 <td>{radiusTag(a.in_radius)}</td>
+                <td>
+                  {a.gps_lat != null && a.gps_lng != null
+                    ? <a href={`https://maps.google.com/?q=${a.gps_lat},${a.gps_lng}`} target="_blank" rel="noreferrer">View on map</a>
+                    : '—'}
+                </td>
                 <td>
                   {a.selfie_url ? '📷 selfie' : '—'}{a.canopy_photo_url ? ' · 📷 canopy' : ''}
                 </td>
