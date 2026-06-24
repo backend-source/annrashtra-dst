@@ -7,4 +7,7 @@ const router = Router();
 router.use(authenticate);
 router.get('/', requireRole('admin', 'supervisor'), users.list);
 
+// Admin adds a promoter to the roster.
+router.post('/', requireRole('admin'), users.create);
+
 export default router;

@@ -4,6 +4,20 @@ Where the company's accounts/keys plug into the app. **Golden rule:** backend se
 live in `api/.env` locally (gitignored) and in the **hosting provider's env-var UI** in
 production — never committed to git.
 
+> **Account ownership — read first.** Create *every* production account (Neon, Render,
+> Cloudflare, MSG91, Firebase, Razorpay) under a **single company-owned email** — e.g.
+> `tech@annrashtra.com` or `it@annrashtra.com` — not a personal Gmail. The company's
+> live infrastructure and billing must not be locked to one person's personal account.
+> Add individuals (you, an IT person) as **collaborators/admins** with their own logins;
+> keep *ownership* on the company address.
+>
+> Why now and not later: most of these platforms (Render especially) make **transferring
+> account ownership painful** — it's far easier to start on the right email than migrate.
+> If the company can spin up the address in the next day or two, wait for it.
+>
+> **Pending cleanup:** Neon was created on a personal account during development — migrate
+> it (or recreate the prod project) under the company email, and rotate the dev password.
+
 | Service | Purpose | Required? | Where the credential goes |
 |---|---|---|---|
 | Neon (Postgres) | Database | ✅ Required | `api/.env` → `DATABASE_URL` |

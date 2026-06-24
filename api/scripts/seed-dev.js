@@ -26,9 +26,9 @@ try {
   )).rows[0];
 
   const promoter = (await client.query(
-    `INSERT INTO users (name, mobile, role, supervisor_id)
-     VALUES ('Test Promoter', '9999000001', 'promoter', $1)
-     ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name, supervisor_id = EXCLUDED.supervisor_id
+    `INSERT INTO users (name, mobile, role, supervisor_id, emp_code)
+     VALUES ('Test Promoter', '9999000001', 'promoter', $1, 'KHF-001')
+     ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name, supervisor_id = EXCLUDED.supervisor_id, emp_code = EXCLUDED.emp_code
      RETURNING id`, [supervisor.id],
   )).rows[0];
 

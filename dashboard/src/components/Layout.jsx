@@ -5,6 +5,7 @@ import Leads from '../pages/Leads.jsx';
 import Attendance from '../pages/Attendance.jsx';
 import Products from '../pages/Products.jsx';
 import Locations from '../pages/Locations.jsx';
+import Promoters from '../pages/Promoters.jsx';
 import Collections from '../pages/Collections.jsx';
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'collections', label: 'Cash Collections', el: Collections },
   { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },
+  { id: 'promoters', label: 'Promoters', el: Promoters },
   { id: 'locations', label: 'Locations', el: Locations },
   { id: 'products', label: 'Products & Pricing', el: Products },
 ];
