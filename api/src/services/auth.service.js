@@ -9,6 +9,22 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
 }
 
+function issueToken(user) {
+  return jwt.sign({ sub: user.id, role: user.role }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
+}
+
+// Single entry point the app calls first. When OTP is disabled (temporary, until
+// MSG91/DLT is live) this logs the user in directly by mobile. Otherwise it tells
+// the app to fall back to the OTP flow — so the SAME app works in both modes and
+// no rebuild is needed when OTP is turned back on.
+export async function login(mobile) {
+  if (!env.otpDisabled) return { otpRequired: true };
+  if (!mobile) throw new ApiError(400, 'mobile is required');
+  const { rows } = await query('SELECT id, role, name FROM users WHERE mobile = $1 AND status = $2', [mobile, 'active']);
+  if (!rows[0]) throw new ApiError(404, 'No active user with that mobile');
+  return { token: issueToken(rows[0]), user: rows[0] };
+}
+
 const OTP_COOLDOWN_MS = 30_000; // min gap between requests for a mobile
 const OTP_MAX_PER_HOUR = 5;
 
@@ -65,10 +81,6 @@ export async function verifyLoginOtp(mobile, code) {
   }
   await query('UPDATE otp_verifications SET consumed_at = now() WHERE id = $1', [otp.id]);
 
-  const { rows: users } = await query('SELECT id, role FROM users WHERE mobile = $1', [mobile]);
-  const user = users[0];
-  const token = jwt.sign({ sub: user.id, role: user.role }, env.jwtSecret, {
-    expiresIn: env.jwtExpiresIn,
-  });
-  return { token, user };
+  const { rows: users } = await query('SELECT id, role, name FROM users WHERE mobile = $1', [mobile]);
+  return { token: issueToken(users[0]), user: users[0] };
 }

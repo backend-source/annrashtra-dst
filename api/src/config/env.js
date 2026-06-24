@@ -34,6 +34,9 @@ export const env = {
   jwtSecret: jwtSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   otpTtlSeconds: parseInt(process.env.OTP_TTL_SECONDS || '300', 10),
+  // Temporary: when true, login skips OTP (direct login by mobile) — for use until
+  // MSG91/DLT is live. Defaults to false so OTP is required (secure by default).
+  otpDisabled: process.env.OTP_DISABLED === 'true',
   msg91: {
     authKey: process.env.MSG91_AUTH_KEY,
     senderId: process.env.MSG91_SENDER_ID,

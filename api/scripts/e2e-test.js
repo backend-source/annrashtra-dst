@@ -72,6 +72,9 @@ const supervisorRow = (await db.query(`SELECT id FROM users WHERE mobile = $1`, 
 await db.query(`DELETE FROM otp_verifications WHERE mobile IN ($1,$2,$3)`, [PROMOTER, SUPERVISOR, ADMIN]);
 
 // ---- auth ----
+// With OTP enabled (default), /api/auth/login signals the app to use OTP.
+const loginProbe = await post('/api/auth/login', { mobile: PROMOTER });
+assert('login signals OTP required when enabled', loginProbe.status === 200 && loginProbe.body.otpRequired === true, JSON.stringify(loginProbe.body));
 const { token, user } = await login(PROMOTER);
 const pid = user.id;
 

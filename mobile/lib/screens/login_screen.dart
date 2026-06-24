@@ -17,16 +17,23 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   String? _error;
 
-  Future<void> _request() async {
+  Future<void> _start() async {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await context.read<AppState>().auth.requestOtp(_mobile.text.trim());
-      setState(() => _codeStep = true);
+      final s = context.read<AppState>();
+      final user = await s.auth.login(_mobile.text.trim());
+      if (user != null) {
+        await s.login(user); // direct login (OTP disabled on the server)
+        return;
+      }
+      // Server requires OTP — request it and show the code step.
+      await s.auth.requestOtp(_mobile.text.trim());
+      if (mounted) setState(() => _codeStep = true);
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -75,8 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: _busy ? null : _request,
-                      child: Text(_busy ? 'Sending…' : 'Send OTP'),
+                      onPressed: _busy ? null : _start,
+                      child: Text(_busy ? 'Signing in…' : 'Sign in'),
                     ),
                   ] else ...[
                     TextField(
