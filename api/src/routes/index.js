@@ -9,6 +9,7 @@ import outboxRoutes from './outbox.routes.js';
 import locationsRoutes from './locations.routes.js';
 import reportsRoutes from './reports.routes.js';
 import usersRoutes from './users.routes.js';
+import collectionsRoutes from './collections.routes.js';
 import { auditWrites } from '../middleware/audit.js';
 
 const router = Router();
@@ -26,5 +27,6 @@ router.use('/outbox', outboxRoutes);
 router.use('/locations', locationsRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/users', usersRoutes);
+router.use('/collections', collectionsRoutes);
 
 export default router;

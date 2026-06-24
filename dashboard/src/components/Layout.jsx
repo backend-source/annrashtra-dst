@@ -5,10 +5,12 @@ import Leads from '../pages/Leads.jsx';
 import Attendance from '../pages/Attendance.jsx';
 import Products from '../pages/Products.jsx';
 import Locations from '../pages/Locations.jsx';
+import Collections from '../pages/Collections.jsx';
 
 const TABS = [
   { id: 'overview', label: 'Overview', el: Overview },
   { id: 'refills', label: 'Refill Approvals', el: RefillApprovals },
+  { id: 'collections', label: 'Cash Collections', el: Collections },
   { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },
   { id: 'locations', label: 'Locations', el: Locations },

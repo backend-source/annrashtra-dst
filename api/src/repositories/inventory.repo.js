@@ -20,6 +20,37 @@ export async function getTodayRow(client, { promoterId, productId }) {
   return rows[0] || null;
 }
 
+// Carry stock forward: ensure today's row exists with opening = the most recent
+// prior day's closing (so closing(N) becomes opening(N+1)). Idempotent — never
+// overwrites an existing row. Call before any same-day stock write.
+export async function ensureTodayRow(client, { promoter_id, product_id }) {
+  await client.query(
+    `INSERT INTO inventory (promoter_id, product_id, opening, day)
+     SELECT $1, $2,
+            COALESCE((SELECT closing FROM inventory
+                      WHERE promoter_id = $1 AND product_id = $2 AND day < current_date
+                      ORDER BY day DESC LIMIT 1), 0),
+            current_date
+     ON CONFLICT (promoter_id, product_id, day) DO NOTHING`,
+    [promoter_id, product_id],
+  );
+}
+
+// Roll opening forward for every product the promoter has prior inventory for
+// (used when viewing today's cycle so carry-over shows even before any activity).
+export async function rolloverForPromoter(promoterId) {
+  await query(
+    `INSERT INTO inventory (promoter_id, product_id, opening, day)
+     SELECT i.promoter_id, i.product_id, i.closing, current_date
+     FROM inventory i
+     WHERE i.promoter_id = $1
+       AND i.day = (SELECT max(day) FROM inventory i2
+                    WHERE i2.promoter_id = $1 AND i2.product_id = i.product_id AND i2.day < current_date)
+     ON CONFLICT (promoter_id, product_id, day) DO NOTHING`,
+    [promoterId],
+  );
+}
+
 // ---- opening allocation (idempotent on client_uuid) ----
 // Records an 'allocation' ledger row; returns null on replay so the caller knows
 // not to double-count into inventory.opening.

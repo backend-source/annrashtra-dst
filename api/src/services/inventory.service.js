@@ -17,6 +17,7 @@ export async function recordOpening(input) {
   await assertProduct(input.product_id);
 
   return withTransaction(async (client) => {
+    await repo.ensureTodayRow(client, { promoter_id: input.promoter_id, product_id: input.product_id });
     const txn = await repo.insertAllocation(client, {
       promoter_id: input.promoter_id, product_id: input.product_id,
       qty: input.qty, client_uuid: input.client_uuid,
@@ -31,9 +32,14 @@ export async function recordOpening(input) {
   });
 }
 
-export function getDailyCycle(user, { promoterId, day }) {
+export async function getDailyCycle(user, { promoterId, day }) {
   const target = user.role === 'promoter' ? user.id : (promoterId || user.id);
-  return repo.getDailyCycle(target, day || new Date().toISOString().slice(0, 10));
+  const d = day || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  // When viewing today, carry yesterday's closing forward into today's opening.
+  if (d === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })) {
+    await repo.rolloverForPromoter(target);
+  }
+  return repo.getDailyCycle(target, d);
 }
 
 // Promoter requests a refill; stays 'pending' until a supervisor decides.
@@ -92,6 +98,7 @@ export async function confirmRefill(id, user, deliveredQty) {
       promoter_id: reqRow.promoter_id, product_id: reqRow.product_id,
       qty: deliveredQty, approved_by: reqRow.decided_by,
     });
+    await repo.ensureTodayRow(client, { promoter_id: reqRow.promoter_id, product_id: reqRow.product_id });
     await repo.addRefill(client, { promoter_id: reqRow.promoter_id, product_id: reqRow.product_id, qty: deliveredQty });
     return repo.markDelivered(client, { id, deliveredQty, stockTxnId });
   });

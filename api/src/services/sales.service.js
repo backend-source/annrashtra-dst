@@ -2,6 +2,7 @@ import { ApiError } from '../middleware/errorHandler.js';
 import { withTransaction } from '../config/db.js';
 import * as productsRepo from '../repositories/products.repo.js';
 import * as salesRepo from '../repositories/sales.repo.js';
+import * as inventoryRepo from '../repositories/inventory.repo.js';
 import * as outboxRepo from '../repositories/outbox.repo.js';
 import { isValidMobile } from '../utils/validators.js';
 
@@ -85,6 +86,7 @@ export async function createSale(input) {
     for (const it of priced) {
       await salesRepo.insertSaleItem(client, { sale_id: sale.id, product_id: it.product_id, qty: it.qty, unit_price: it.unit_price });
       await salesRepo.insertStockDeduction(client, { promoter_id: input.promoter_id, product_id: it.product_id, qty: it.qty, sale_id: sale.id });
+      await inventoryRepo.ensureTodayRow(client, { promoter_id: input.promoter_id, product_id: it.product_id });
       await salesRepo.addInventorySold(client, { promoter_id: input.promoter_id, product_id: it.product_id, qty: it.qty });
     }
 

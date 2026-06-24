@@ -84,7 +84,10 @@ await db.query(`DELETE FROM sales WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM leads WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM attendance WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM inventory WHERE promoter_id=$1`, [pid]);
+await db.query(`DELETE FROM collections WHERE promoter_id=$1`, [pid]);
 await db.query(`DELETE FROM locations WHERE name='E2E Spot'`);
+// seed a "yesterday" KF-800 row (closing 30) to verify stock rollover -> today's opening
+await db.query(`INSERT INTO inventory (promoter_id, product_id, opening, sold, day) VALUES ($1,$2,30,0,current_date - 1)`, [pid, product.id]);
 
 // ---- leads ----
 const leadUuid = randomUUID();
@@ -171,6 +174,12 @@ assert('opening replay idempotent (200, still 50)', open2.status === 200 && open
 const cyc = await get('/api/inventory', token);
 const row1 = cyc.body.find((r) => r.product_id === product2.id);
 assert('daily cycle lists opening=50', !!row1 && row1.opening === 50, `opening=${row1?.opening}`);
+
+// stock rollover: KF-800 had a yesterday closing of 30 -> today's opening = 30;
+// the earlier sale sold 2, so closing = 30 + 0 - 2 = 28.
+const kf800 = cyc.body.find((r) => r.product_id === product.id);
+assert('rollover: today opening = yesterday closing (30)', !!kf800 && kf800.opening === 30, `opening=${kf800?.opening}`);
+assert('rollover: closing = opening - sold (28)', !!kf800 && kf800.closing === 28, `closing=${kf800?.closing}`);
 
 // promoter requests refill; ONLY admin approves; promoter confirms actual delivery
 const admin = await login(ADMIN);
@@ -264,6 +273,26 @@ const usersList = await get('/api/users?role=promoter', admin.token);
 assert('admin lists promoters', Array.isArray(usersList.body) && usersList.body.length >= 1, `n=${usersList.body?.length}`);
 const usersForbidden = await get('/api/users?role=promoter', token);
 assert('promoter cannot list users (403)', usersForbidden.status === 403, `status=${usersForbidden.status}`);
+
+// ---- collections (cash handover): promoter hands over -> supervisor confirms ----
+const colUuid = randomUUID();
+const col = await post('/api/collections', { client_uuid: colUuid, amount: 320 }, token);
+assert('handover 201 pending', col.status === 201 && col.body.status === 'pending', `status=${col.status}`);
+const colReplay = await post('/api/collections', { client_uuid: colUuid, amount: 320 }, token);
+assert('handover replay (same id)', colReplay.body.id === col.body.id);
+const colDup = await post('/api/collections', { client_uuid: randomUUID(), amount: 100 }, token);
+assert('one handover per day (409)', colDup.status === 409, `status=${colDup.status}`);
+const colList = await get('/api/collections', token);
+assert('promoter sees own handover', Array.isArray(colList.body) && colList.body.some((c) => c.id === col.body.id));
+const colByPromoter = await post(`/api/collections/${col.body.id}/confirm`, {}, token);
+assert('promoter cannot confirm (403)', colByPromoter.status === 403, `status=${colByPromoter.status}`);
+const colConfirm = await post(`/api/collections/${col.body.id}/confirm`, {}, sup.token);
+assert('supervisor confirm -> received', colConfirm.status === 200 && colConfirm.body.status === 'received' && colConfirm.body.confirmed_by === sup.user.id, `status=${colConfirm.status}`);
+const colConfirm2 = await post(`/api/collections/${col.body.id}/confirm`, {}, sup.token);
+assert('confirm idempotent (received)', colConfirm2.body.status === 'received');
+const colExp = await fetch(`${BASE}/api/reports/export/collections?from=2000-01-01&to=2030-01-01`, { headers: { authorization: `Bearer ${admin.token}` } });
+const colExpText = await colExp.text();
+assert('collections CSV export', colExp.status === 200 && colExpText.startsWith('Promoter,Day,Expected cash'), `status=${colExp.status}`);
 
 // reports overview — role-scoped
 const repP = await get('/api/reports/overview', token);

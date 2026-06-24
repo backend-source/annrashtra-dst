@@ -17,6 +17,7 @@ const EXPORTS = {
   leads: { fn: repo.exportLeads, headers: ['Promoter', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
   attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by', 'Lat', 'Lng', 'Map'], keys: ['promoter', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by', 'gps_lat', 'gps_lng', 'map_url'] },
   inventory: { fn: repo.exportInventory, headers: ['Promoter', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },
+  collections: { fn: repo.exportCollections, headers: ['Promoter', 'Day', 'Expected cash', 'Handed over', 'Status', 'Confirmed by', 'Confirmed at'], keys: ['promoter', 'day', 'expected_cash', 'handed_over', 'status', 'confirmed_by', 'confirmed_at'] },
 };
 
 // Promoter ids visible to this user: promoter -> self; supervisor -> their team;

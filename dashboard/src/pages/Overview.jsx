@@ -10,7 +10,7 @@ function ExportPanel() {
   const [to, setTo] = useState(today());
   const [busy, setBusy] = useState(null);
   const [err, setErr] = useState('');
-  const types = [['sales', 'Sales'], ['leads', 'Leads'], ['attendance', 'Attendance'], ['inventory', 'Inventory']];
+  const types = [['sales', 'Sales'], ['leads', 'Leads'], ['attendance', 'Attendance'], ['inventory', 'Inventory'], ['collections', 'Collections']];
 
   async function dl(type) {
     setBusy(type); setErr('');

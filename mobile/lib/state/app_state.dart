@@ -103,6 +103,12 @@ class AppState extends ChangeNotifier {
     await api.post('/api/inventory/refill-requests/$id/confirm', {'delivered_qty': deliveredQty});
   }
 
+  // The promoter's cash handovers (online).
+  Future<List<Map<String, dynamic>>> collections() async {
+    final res = await api.get('/api/collections') as List;
+    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
   // The promoter's own overview (revenue, leads, points...). Cached for offline.
   Future<Map<String, dynamic>?> overview() async {
     try {
