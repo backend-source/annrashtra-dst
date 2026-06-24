@@ -13,6 +13,7 @@ export async function createPromoter(input) {
 
   if (!name) throw new ApiError(400, 'name is required');
   if (!isValidMobile(mobile)) throw new ApiError(400, 'mobile must be exactly 10 digits');
+  if (!emp_code) throw new ApiError(400, 'promoter code is required');
 
   try {
     return await repo.createPromoter({ name, mobile, emp_code, supervisor_id: input.supervisor_id || null });

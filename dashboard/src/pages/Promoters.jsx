@@ -20,7 +20,7 @@ export default function Promoters({ user }) {
       await api.post('/api/users', {
         name: form.name.trim(),
         mobile: form.mobile.trim(),
-        emp_code: form.emp_code.trim() || null,
+        emp_code: form.emp_code.trim(),
         supervisor_id: form.supervisor_id || null,
       });
       setForm(null);
@@ -34,7 +34,7 @@ export default function Promoters({ user }) {
       <h2>Promoters</h2>
       <p className="muted">
         {isAdmin
-          ? 'The field roster. Each promoter has a unique mobile and an optional promoter code (e.g. KHF-001) for ID cards and registers.'
+          ? 'The field roster. Each promoter has a unique mobile and a unique promoter code (e.g. KHF-001) for ID cards and registers.'
           : 'Read-only — only an admin can add promoters.'}
       </p>
       {isAdmin && !form && <button onClick={() => { setMsg(''); setForm({ ...blank }); }}>+ Add promoter</button>}
@@ -44,13 +44,13 @@ export default function Promoters({ user }) {
         <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: 16, margin: '12px 0', display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
           <input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input placeholder="Mobile (10 digits)" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
-          <input placeholder="Promoter code (e.g. KHF-001)" value={form.emp_code} onChange={(e) => setForm({ ...form, emp_code: e.target.value })} />
+          <input placeholder="Promoter code, e.g. KHF-001 (required)" value={form.emp_code} onChange={(e) => setForm({ ...form, emp_code: e.target.value })} />
           <select value={form.supervisor_id} onChange={(e) => setForm({ ...form, supervisor_id: e.target.value })}>
             <option value="">— assign supervisor —</option>
             {(supervisors.data || []).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.mobile})</option>)}
           </select>
           <div className="actions" style={{ gridColumn: '1 / -1' }}>
-            <button onClick={save} disabled={busy || !form.name.trim() || !mobileOk}>{busy ? 'Saving…' : 'Save'}</button>
+            <button onClick={save} disabled={busy || !form.name.trim() || !mobileOk || !form.emp_code.trim()}>{busy ? 'Saving…' : 'Save'}</button>
             <button className="link" onClick={() => setForm(null)}>Cancel</button>
             {form.mobile.trim() && !mobileOk && <span className="error" style={{ marginLeft: 8 }}>Mobile must be exactly 10 digits</span>}
           </div>
