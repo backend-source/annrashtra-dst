@@ -83,6 +83,16 @@ export async function setOverride(id, supervisorId, reason) {
   return rows[0] || null;
 }
 
+// Promoter + spot names for an out-of-geofence alert email.
+export async function getAlertInfo(promoterId, locationId) {
+  const { rows } = await query(
+    `SELECT u.name AS promoter_name, u.emp_code AS promoter_code, l.name AS location_name
+     FROM users u LEFT JOIN locations l ON l.id = $2 WHERE u.id = $1`,
+    [promoterId, locationId],
+  );
+  return rows[0] || {};
+}
+
 // A promoter's own recent check-ins (last few days) so the app can offer check-out.
 export async function listForPromoter(promoterId) {
   const { rows } = await query(

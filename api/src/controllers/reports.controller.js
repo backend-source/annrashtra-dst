@@ -11,6 +11,15 @@ export async function overview(req, res, next) {
   }
 }
 
+// Admin: send a test alert email.
+export async function testEmail(req, res, next) {
+  try {
+    res.json(await service.testAlert());
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Promoter's own dashboard summary (?period=today|week).
 export async function me(req, res, next) {
   try {

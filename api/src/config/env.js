@@ -44,6 +44,16 @@ export const env = {
     whatsappNumber: process.env.MSG91_WHATSAPP_NUMBER,
     webhookSecret: process.env.MSG91_WEBHOOK_SECRET, // optional shared secret for delivery callbacks
   },
+  // SMTP for alert emails (provider-agnostic: Resend, SES, Mailgun, etc.). When
+  // unset, alert emails are skipped (never blocks the action that triggered them).
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.ALERT_EMAIL_FROM,
+    to: process.env.ALERT_EMAIL_TO, // comma-separated recipients
+  },
   // Cloudflare R2 (S3-compatible) for promoter photos. When unset, the presign
   // endpoint returns 503 and the app keeps capturing photos locally.
   r2: {

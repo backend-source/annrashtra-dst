@@ -1,5 +1,6 @@
 import { query } from '../config/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
+import { sendMail, mailConfigured } from '../integrations/mailer.js';
 import * as repo from '../repositories/reports.repo.js';
 
 function toCsv(headers, rows) {
@@ -38,6 +39,16 @@ export async function overview(user) {
   // Promoters don't get a leaderboard (it's a team view).
   if (user.role === 'promoter') data.leaderboard = [];
   return { scope: user.role, promoters_in_scope: ids.length, ...data };
+}
+
+// Admin: send a test alert email to verify SMTP is configured correctly.
+export async function testAlert() {
+  const sent = await sendMail({
+    subject: 'Annrashtra DST — test alert',
+    text: 'This is a test alert email from Annrashtra DST. If you received it, alert emails are configured correctly.',
+    html: '<p>This is a test alert email from <b>Annrashtra DST</b>. If you received it, alert emails are configured correctly.</p>',
+  });
+  return { configured: mailConfigured(), sent };
 }
 
 // Promoter's own dashboard (today | week). Promoter-only — uses their own id.

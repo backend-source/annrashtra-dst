@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as reports from '../controllers/reports.controller.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -11,6 +11,9 @@ router.get('/overview', reports.overview);
 
 // Promoter's own dashboard (stock in hand, leads, cash/UPI in hand, points).
 router.get('/me', reports.me);
+
+// Admin: send a test alert email (to verify SMTP config).
+router.post('/test-email', requireRole('admin'), reports.testEmail);
 
 // CSV export: type = sales | leads | attendance | inventory.
 router.get('/export/:type', reports.exportReport);

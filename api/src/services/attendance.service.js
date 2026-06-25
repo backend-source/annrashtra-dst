@@ -1,8 +1,32 @@
 import { ApiError } from '../middleware/errorHandler.js';
 import { distanceMeters } from '../utils/geo.js';
+import { sendMail } from '../integrations/mailer.js';
 import * as repo from '../repositories/attendance.repo.js';
 
 const VALID_SHIFTS = new Set(['morning', 'evening']);
+
+// Email a supervisor/ops when a check-in lands outside the geofence. Best-effort.
+async function notifyOutOfGeofence(input, distance) {
+  const info = await repo.getAlertInfo(input.promoter_id, input.location_id);
+  const who = `${info.promoter_name || 'A promoter'}${info.promoter_code ? ` (${info.promoter_code})` : ''}`;
+  const map = input.gps_lat != null && input.gps_lng != null
+    ? `https://maps.google.com/?q=${input.gps_lat},${input.gps_lng}` : null;
+  const lines = [
+    `${who} checked in OUTSIDE the geofence.`,
+    `Spot: ${info.location_name || '—'}`,
+    `Shift: ${input.shift}`,
+    distance != null ? `Distance from spot: ${Math.round(distance)} m` : null,
+    map ? `Map: ${map}` : null,
+    input.selfie_url ? `Selfie: ${input.selfie_url}` : null,
+    input.canopy_photo_url ? `Canopy: ${input.canopy_photo_url}` : null,
+    `Review the photos and override in the dashboard.`,
+  ].filter(Boolean);
+  await sendMail({
+    subject: `⚠ Out-of-geofence check-in: ${who}`,
+    text: lines.join('\n'),
+    html: lines.map((l) => `<p>${l}</p>`).join(''),
+  });
+}
 
 // Check-in with a soft geofence. The promoter is never blocked: we record the
 // GPS + photos and flag whether they were inside the location's radius_m. A
@@ -47,6 +71,10 @@ export async function checkIn(input) {
       override_reason: null,
       client_uuid: input.client_uuid,
     });
+    // Out-of-geofence -> alert by email (fire-and-forget; never blocks check-in).
+    if (inRadius === false) {
+      notifyOutOfGeofence(input, distance).catch((e) => console.error('[mail] geofence alert failed:', e.message));
+    }
     return { ...row, distance_m: distance == null ? null : Math.round(distance) };
   } catch (err) {
     if (err.code === '23505') {
