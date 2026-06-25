@@ -29,6 +29,7 @@ export const api = {
   get: (p) => req('GET', p),
   post: (p, b) => req('POST', p, b),
   patch: (p, b) => req('PATCH', p, b),
+  del: (p) => req('DELETE', p),
 };
 
 // Fetch a file with auth and trigger a browser download (a plain <a> can't send

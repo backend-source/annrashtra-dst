@@ -34,3 +34,24 @@ export async function createUser(input) {
     throw err;
   }
 }
+
+export async function setStatus(id, status) {
+  if (status !== 'active' && status !== 'inactive') throw new ApiError(400, 'status must be active or inactive');
+  const updated = await repo.setStatus(id, status);
+  if (!updated) throw new ApiError(404, 'Team member not found (admins are managed separately)');
+  return updated;
+}
+
+export async function remove(id) {
+  try {
+    const removed = await repo.remove(id);
+    if (!removed) throw new ApiError(404, 'Team member not found (admins are managed separately)');
+    return { deleted: true };
+  } catch (err) {
+    // Referenced by leads/sales/attendance/etc. — preserve the history instead.
+    if (err.code === '23503') {
+      throw new ApiError(409, 'This member has activity (leads, sales or attendance). Deactivate them instead of deleting.');
+    }
+    throw err;
+  }
+}

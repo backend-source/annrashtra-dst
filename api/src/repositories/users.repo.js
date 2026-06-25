@@ -19,3 +19,22 @@ export async function createUser(u) {
   );
   return rows[0];
 }
+
+// Activate / deactivate a team member (admins can't be changed here).
+export async function setStatus(id, status) {
+  const { rows } = await query(
+    `UPDATE users SET status = $2 WHERE id = $1 AND role IN ('promoter','supervisor')
+     RETURNING id, name, mobile, emp_code, role, status`,
+    [id, status],
+  );
+  return rows[0] || null;
+}
+
+// Hard-delete a team member. Throws a FK error (23503) if they have any activity.
+export async function remove(id) {
+  const { rows } = await query(
+    `DELETE FROM users WHERE id = $1 AND role IN ('promoter','supervisor') RETURNING id`,
+    [id],
+  );
+  return rows[0] || null;
+}

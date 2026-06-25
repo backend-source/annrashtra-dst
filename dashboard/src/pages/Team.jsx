@@ -11,11 +11,31 @@ export default function Team({ user }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const [rowBusy, setRowBusy] = useState(null);
   const list = people.data || [];
   const supervisors = list.filter((p) => p.role === 'supervisor');
   const isPromoter = form?.role === 'promoter';
   const mobileOk = /^\d{10}$/.test(form?.mobile?.trim() || '');
   const codeOk = !isPromoter || !!form?.emp_code?.trim(); // code required for promoters only
+
+  async function setStatus(p, status) {
+    setRowBusy(p.id); setMsg('');
+    try {
+      await api.patch(`/api/users/${p.id}/status`, { status });
+      people.reload();
+    } catch (e) { setMsg(e.message); }
+    finally { setRowBusy(null); }
+  }
+
+  async function remove(p) {
+    if (!window.confirm(`Delete ${p.name} (${p.mobile})? This can't be undone.`)) return;
+    setRowBusy(p.id); setMsg('');
+    try {
+      await api.del(`/api/users/${p.id}`);
+      people.reload();
+    } catch (e) { setMsg(e.message); } // e.g. "has activity — deactivate instead"
+    finally { setRowBusy(null); }
+  }
 
   async function save() {
     setBusy(true); setMsg('');
@@ -77,15 +97,29 @@ export default function Team({ user }) {
       {people.error && <p className="error">{people.error}</p>}
       {people.data && (
         <table>
-          <thead><tr><th>Role</th><th>Code</th><th>Name</th><th>Mobile</th><th>Status</th></tr></thead>
+          <thead><tr><th>Role</th><th>Code</th><th>Name</th><th>Mobile</th><th>Status</th>{isAdmin && <th>Actions</th>}</tr></thead>
           <tbody>
             {list.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} style={p.status !== 'active' ? { opacity: 0.55 } : undefined}>
                 <td>{roleTag(p.role)}</td>
                 <td>{p.emp_code || <span className="muted">—</span>}</td>
                 <td>{p.name}</td>
                 <td>{p.mobile}</td>
-                <td>{p.status}</td>
+                <td>{p.status === 'active' ? p.status : <span className="muted">inactive</span>}</td>
+                {isAdmin && (
+                  <td className="actions">
+                    {p.role === 'admin' ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <>
+                        {p.status === 'active'
+                          ? <button disabled={rowBusy === p.id} onClick={() => setStatus(p, 'inactive')}>Deactivate</button>
+                          : <button disabled={rowBusy === p.id} onClick={() => setStatus(p, 'active')}>Activate</button>}
+                        <button className="link" disabled={rowBusy === p.id} onClick={() => remove(p)} style={{ color: '#b3361f' }}>Delete</button>
+                      </>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

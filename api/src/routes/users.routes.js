@@ -7,7 +7,10 @@ const router = Router();
 router.use(authenticate);
 router.get('/', requireRole('admin', 'supervisor'), users.list);
 
-// Admin adds a promoter to the roster.
+// Admin adds a promoter/supervisor to the roster.
 router.post('/', requireRole('admin'), users.create);
+// Admin activates/deactivates or deletes a team member.
+router.patch('/:id/status', requireRole('admin'), users.setStatus);
+router.delete('/:id', requireRole('admin'), users.remove);
 
 export default router;

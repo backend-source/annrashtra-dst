@@ -17,3 +17,21 @@ export async function create(req, res, next) {
     next(err);
   }
 }
+
+// Admin activates/deactivates a team member (deactivate = block login, keep history).
+export async function setStatus(req, res, next) {
+  try {
+    res.json(await service.setStatus(req.params.id, req.body.status));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin hard-deletes a team member (only allowed if they have no activity).
+export async function remove(req, res, next) {
+  try {
+    res.json(await service.remove(req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
