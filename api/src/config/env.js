@@ -44,4 +44,13 @@ export const env = {
     whatsappNumber: process.env.MSG91_WHATSAPP_NUMBER,
     webhookSecret: process.env.MSG91_WEBHOOK_SECRET, // optional shared secret for delivery callbacks
   },
+  // Cloudflare R2 (S3-compatible) for promoter photos. When unset, the presign
+  // endpoint returns 503 and the app keeps capturing photos locally.
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucket: process.env.R2_BUCKET,
+    publicBase: (process.env.R2_PUBLIC_BASE || '').replace(/\/$/, ''), // no trailing slash
+  },
 };

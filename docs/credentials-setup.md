@@ -22,7 +22,7 @@ production — never committed to git.
 |---|---|---|---|
 | Neon (Postgres) | Database | ✅ Required | `api/.env` → `DATABASE_URL` |
 | MSG91 | Login OTP (SMS) + WhatsApp invoices | ✅ Required | `api/.env` → `MSG91_*` |
-| Firebase Storage | Selfie / canopy / QR photos | ✅ Required | `mobile/android/app/google-services.json` |
+| Cloudflare R2 | Selfie / canopy / lead photos | ✅ Required | `api/.env` → `R2_*` (Render env in prod) |
 | Razorpay | Online UPI collection | ⬜ Optional | `api/.env` → `RAZORPAY_*` |
 | JWT / webhook secret | App-generated secrets | ✅ Required | `api/.env` (you generate these) |
 | Render | API + outbox worker hosting | ✅ for go-live | Render dashboard env vars |
@@ -57,17 +57,31 @@ matching `api/.env` → `MSG91_WEBHOOK_SECRET`.
 > Until these exist the app runs in dev mode (OTP prints to the server log, messages
 > are simulated). No code change is needed when you add them — just fill `.env`.
 
-## 3. Firebase Storage — photos (company Google account)
-Photos are uploaded **from the mobile app**; the API only stores the returned URL.
-- In the Firebase console, create a project (Storage region **asia-south1 / Mumbai**).
-- Add an **Android app** with package `com.annrashtra.annrashtra_promoter`.
-- Download **`google-services.json`** → place in `mobile/android/app/`.
-- Run `flutterfire configure` (generates `mobile/lib/firebase_options.dart`); add
-  `firebase_core` + `firebase_storage` deps; then swap `StubPhotoUploader` →
-  a `FirebaseUploader` (one class — see `mobile/lib/services/photo_uploader.dart`).
-- Set Storage **security rules** to allow authenticated writes only.
-- The API needs no Firebase secret for this flow. (`FIREBASE_PROJECT_ID` /
-  `FIREBASE_STORAGE_BUCKET` in `api/.env` are only for optional server-side use.)
+## 3. Cloudflare R2 — photos (same Cloudflare account as the dashboard)
+Selfie/canopy photos upload **from the app straight to R2** via a short-lived
+presigned URL our API issues (`POST /api/uploads/presign`); the API only stores the
+public URL on the attendance record. The app code (`R2Uploader`) is already wired —
+this is pure account setup, then env vars on Render.
+
+In the Cloudflare dashboard (business account):
+1. **R2 → Create bucket** → name `annrashtra-photos` (location: Asia-Pacific).
+2. **R2 → Manage R2 API Tokens → Create API token** → permission **Object Read & Write**,
+   scoped to that bucket. Copy the **Access Key ID** and **Secret Access Key** (shown once).
+3. Note your **Account ID** (R2 overview page, right side).
+4. On the bucket → **Settings → Public access → Allow** (R2.dev subdomain). Copy the
+   **Public R2.dev URL** (looks like `https://pub-<hash>.r2.dev`).
+
+Then set these env vars (locally in `api/.env`, in prod on **Render → Environment**):
+- `R2_ACCOUNT_ID` — the account id
+- `R2_ACCESS_KEY_ID` — from the API token
+- `R2_SECRET_ACCESS_KEY` — from the API token
+- `R2_BUCKET` — `annrashtra-photos`
+- `R2_PUBLIC_BASE` — the `https://pub-<hash>.r2.dev` URL
+
+> Keys are unguessable (uuid in the path) so the public bucket is fine for a pilot.
+> For stronger privacy later, keep the bucket private and serve via presigned GET URLs.
+> No bucket CORS config is needed: the app's upload is a non-browser PUT, and the
+> dashboard only loads images via `<img>` (a plain GET).
 
 ## 4. Razorpay — optional online UPI (company account, needs business KYC)
 - Key ID + Secret → `api/.env` → `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`.

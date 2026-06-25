@@ -16,7 +16,7 @@ Future<void> main() async {
   final api = ApiClient();
   final sync = SyncService(api, store);
   final auth = AuthService(api, store);
-  final uploader = StubPhotoUploader(); // swap for FirebaseUploader when configured
+  final uploader = R2Uploader(api); // uploads photos to Cloudflare R2 via presigned URL
   final state = AppState(api, store, sync, auth, uploader);
   runApp(ChangeNotifierProvider<AppState>.value(value: state, child: const PromoterApp()));
 }

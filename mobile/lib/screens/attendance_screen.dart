@@ -120,6 +120,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         const SnackBar(content: Text('Check-in saved — will sync when online')),
       );
       Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      // The photo upload needs a connection; don't save a check-in without it.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.isNetwork
+            ? 'No connection — the photo needs internet. Please try again when online.'
+            : 'Photo upload failed: ${e.message}'),
+      ));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

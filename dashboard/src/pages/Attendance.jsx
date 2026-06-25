@@ -8,6 +8,18 @@ function radiusTag(inRadius) {
   return <span className="tag">n/a</span>;
 }
 
+// A stored photo URL is a real image once R2 is wired (http...). Older records
+// may still hold a 'pending-upload://' marker — show that as text, not an image.
+function photo(url, label) {
+  if (!url) return null;
+  if (!/^https?:\/\//.test(url)) return <span className="muted" style={{ fontSize: 12 }}>📷 {label}</span>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title={`Open ${label}`}>
+      <img src={url} alt={label} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)' }} />
+    </a>
+  );
+}
+
 export default function Attendance() {
   const { data, error, loading, reload } = useAsync(() => api.get('/api/attendance'));
   const [busy, setBusy] = useState(null);
@@ -25,7 +37,7 @@ export default function Attendance() {
   return (
     <section>
       <h2>Canopy verification</h2>
-      <p className="muted">Review promoter check-ins and verify the canopy activity. Photos show as captured; image thumbnails appear once Firebase Storage is wired.</p>
+      <p className="muted">Review promoter check-ins and verify the canopy activity. Tap a photo to view it full size.</p>
       {msg && <p className="error">{msg}</p>}
       {loading && <p className="muted">Loading…</p>}
       {error && <p className="error">{error}</p>}
@@ -49,7 +61,10 @@ export default function Attendance() {
                     : '—'}
                 </td>
                 <td>
-                  {a.selfie_url ? '📷 selfie' : '—'}{a.canopy_photo_url ? ' · 📷 canopy' : ''}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {photo(a.selfie_url, 'selfie') || '—'}
+                    {photo(a.canopy_photo_url, 'canopy')}
+                  </div>
                 </td>
                 <td>
                   {a.verified_by
