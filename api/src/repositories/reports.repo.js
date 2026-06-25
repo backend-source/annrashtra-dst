@@ -50,7 +50,7 @@ export async function overview(ids) {
 // ---- CSV export row sources (inclusive date range on the IST business day) ----
 export async function exportSales(ids, from, to) {
   const { rows } = await query(
-    `SELECT s.invoice_no, to_char(s.created_at,'YYYY-MM-DD HH24:MI') AS dt, u.name AS promoter,
+    `SELECT s.invoice_no, to_char(s.created_at,'YYYY-MM-DD HH24:MI') AS dt, u.name AS promoter, u.emp_code AS code,
             c.name AS customer, c.mobile AS customer_mobile,
             s.payment_mode, s.total,
             (SELECT string_agg(p.sku || ' x' || si.qty, '; ')
@@ -64,7 +64,7 @@ export async function exportSales(ids, from, to) {
 
 export async function exportLeads(ids, from, to) {
   const { rows } = await query(
-    `SELECT u.name AS promoter, l.name, l.mobile, l.health_concern, l.product_interest,
+    `SELECT u.name AS promoter, u.emp_code AS code, l.name, l.mobile, l.health_concern, l.product_interest,
             l.source, l.verify_status, l.status, to_char(l.created_at,'YYYY-MM-DD HH24:MI') AS dt
      FROM leads l JOIN users u ON u.id = l.promoter_id
      WHERE l.promoter_id = ANY($1) AND l.created_at::date BETWEEN $2 AND $3
@@ -74,7 +74,7 @@ export async function exportLeads(ids, from, to) {
 
 export async function exportAttendance(ids, from, to) {
   const { rows } = await query(
-    `SELECT u.name AS promoter, loc.name AS location, a.shift,
+    `SELECT u.name AS promoter, u.emp_code AS code, loc.name AS location, a.shift,
             to_char(a.check_in_at,'YYYY-MM-DD HH24:MI') AS checkin,
             to_char(a.check_out_at,'YYYY-MM-DD HH24:MI') AS checkout,
             a.in_radius, v.name AS verified_by,
@@ -91,7 +91,7 @@ export async function exportAttendance(ids, from, to) {
 
 export async function exportCollections(ids, from, to) {
   const { rows } = await query(
-    `SELECT u.name AS promoter, to_char(c.day,'YYYY-MM-DD') AS day,
+    `SELECT u.name AS promoter, u.emp_code AS code, to_char(c.day,'YYYY-MM-DD') AS day,
             COALESCE((SELECT sum(total) FROM sales s WHERE s.promoter_id=c.promoter_id
                       AND s.payment_mode='cash' AND s.created_at::date=c.day),0) AS expected_cash,
             c.amount AS handed_cash,
@@ -107,7 +107,7 @@ export async function exportCollections(ids, from, to) {
 
 export async function exportInventory(ids, from, to) {
   const { rows } = await query(
-    `SELECT u.name AS promoter, p.sku, i.opening, i.refill, i.sold, i.closing,
+    `SELECT u.name AS promoter, u.emp_code AS code, p.sku, i.opening, i.refill, i.sold, i.closing,
             to_char(i.day,'YYYY-MM-DD') AS day
      FROM inventory i JOIN users u ON u.id = i.promoter_id JOIN products p ON p.id = i.product_id
      WHERE i.promoter_id = ANY($1) AND i.day BETWEEN $2::date AND $3::date

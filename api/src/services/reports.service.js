@@ -13,11 +13,11 @@ function toCsv(headers, rows) {
 
 // Per-type CSV spec: which repo query, the header row, and the columns to pull.
 const EXPORTS = {
-  sales: { fn: repo.exportSales, headers: ['Invoice', 'Date', 'Promoter', 'Customer', 'Mobile', 'Payment', 'Total', 'Items'], keys: ['invoice_no', 'dt', 'promoter', 'customer', 'customer_mobile', 'payment_mode', 'total', 'items'] },
-  leads: { fn: repo.exportLeads, headers: ['Promoter', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
-  attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by', 'Lat', 'Lng', 'Map'], keys: ['promoter', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by', 'gps_lat', 'gps_lng', 'map_url'] },
-  inventory: { fn: repo.exportInventory, headers: ['Promoter', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },
-  collections: { fn: repo.exportCollections, headers: ['Promoter', 'Day', 'Expected cash', 'Cash handed', 'Expected UPI', 'UPI handed', 'Status', 'Verified by', 'Verified at'], keys: ['promoter', 'day', 'expected_cash', 'handed_cash', 'expected_upi', 'handed_upi', 'status', 'confirmed_by', 'confirmed_at'] },
+  sales: { fn: repo.exportSales, headers: ['Promoter', 'Code', 'Invoice', 'Date', 'Customer', 'Mobile', 'Payment', 'Total', 'Items'], keys: ['promoter', 'code', 'invoice_no', 'dt', 'customer', 'customer_mobile', 'payment_mode', 'total', 'items'] },
+  leads: { fn: repo.exportLeads, headers: ['Promoter', 'Code', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'code', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
+  attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Code', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by', 'Lat', 'Lng', 'Map'], keys: ['promoter', 'code', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by', 'gps_lat', 'gps_lng', 'map_url'] },
+  inventory: { fn: repo.exportInventory, headers: ['Promoter', 'Code', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'code', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },
+  collections: { fn: repo.exportCollections, headers: ['Promoter', 'Code', 'Day', 'Expected cash', 'Cash handed', 'Expected UPI', 'UPI handed', 'Status', 'Verified by', 'Verified at'], keys: ['promoter', 'code', 'day', 'expected_cash', 'handed_cash', 'expected_upi', 'handed_upi', 'status', 'confirmed_by', 'confirmed_at'] },
 };
 
 // Promoter ids visible to this user: promoter -> self; supervisor -> their team;

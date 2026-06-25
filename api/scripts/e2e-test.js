@@ -301,7 +301,7 @@ const colAccept2 = await post(`/api/collections/${col.body.id}/accept`, {}, toke
 assert('accept idempotent (received)', colAccept2.body.status === 'received');
 const colExp = await fetch(`${BASE}/api/reports/export/collections?from=2000-01-01&to=2030-01-01`, { headers: { authorization: `Bearer ${admin.token}` } });
 const colExpText = await colExp.text();
-assert('collections CSV export', colExp.status === 200 && colExpText.startsWith('Promoter,Day,Expected cash'), `status=${colExp.status}`);
+assert('collections CSV export', colExp.status === 200 && colExpText.startsWith('Promoter,Code,Day,Expected cash'), `status=${colExp.status}`);
 
 // reports overview — role-scoped
 const repP = await get('/api/reports/overview', token);
@@ -314,7 +314,7 @@ assert('admin overview (org-wide, 7-day series)', repA.status === 200 && repA.bo
 // CSV export (download)
 const expRes = await fetch(`${BASE}/api/reports/export/sales?from=2000-01-01&to=2030-01-01`, { headers: { authorization: `Bearer ${admin.token}` } });
 const expText = await expRes.text();
-assert('admin sales CSV export', expRes.status === 200 && expText.startsWith('Invoice,Date,Promoter'), `status=${expRes.status}`);
+assert('admin sales CSV export', expRes.status === 200 && expText.startsWith('Promoter,Code,Invoice,Date'), `status=${expRes.status}`);
 const expNoAuth = await fetch(`${BASE}/api/reports/export/sales`);
 assert('export requires auth (401)', expNoAuth.status === 401, `status=${expNoAuth.status}`);
 
