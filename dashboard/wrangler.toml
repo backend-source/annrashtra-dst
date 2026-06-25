@@ -1,0 +1,10 @@
+# Cloudflare Worker (static assets) config for the dashboard.
+# The build command runs `npm run build` (Vite) → produces ./dist, and
+# `wrangler deploy` serves that folder as a static site. SPA fallback sends
+# unknown paths to index.html.
+name = "annrashtra-dst"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
