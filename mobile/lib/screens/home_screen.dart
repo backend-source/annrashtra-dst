@@ -9,8 +9,16 @@ import 'stock_screen.dart';
 import 'cash_handover_screen.dart';
 import 'queue_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _dashKey = GlobalKey<_MyStatsState>();
+  void _refreshDash() => _dashKey.currentState?.reload();
 
   @override
   Widget build(BuildContext context) {
@@ -26,17 +34,19 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _StatusCard(online: s.online, pending: s.pendingCount, onSync: s.flush),
+          _StatusCard(online: s.online, pending: s.pendingCount, onSync: () async { await s.flush(); _refreshDash(); }),
           const SizedBox(height: 12),
-          const _MyStats(),
+          _MyStats(key: _dashKey),
           const SizedBox(height: 16),
-          _Tile(icon: Icons.person_add, label: 'Capture lead', builder: () => const LeadFormScreen()),
-          _Tile(icon: Icons.point_of_sale, label: 'Record sale', builder: () => const SaleFormScreen()),
-          _Tile(icon: Icons.place, label: 'My spot', builder: () => const MySpotScreen()),
-          _Tile(icon: Icons.how_to_reg, label: 'Attendance', builder: () => const AttendanceScreen()),
-          _Tile(icon: Icons.inventory_2, label: 'Stock & refills', builder: () => const StockScreen()),
-          _Tile(icon: Icons.payments, label: 'Cash handover', builder: () => const CashHandoverScreen()),
-          _Tile(icon: Icons.sync, label: 'Sync queue', builder: () => const QueueScreen()),
+          // After returning from any of these, refresh the dashboard so new
+          // sales/leads/handovers show up immediately.
+          _Tile(icon: Icons.person_add, label: 'Capture lead', builder: () => const LeadFormScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.point_of_sale, label: 'Record sale', builder: () => const SaleFormScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.place, label: 'My spot', builder: () => const MySpotScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.how_to_reg, label: 'Attendance', builder: () => const AttendanceScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.inventory_2, label: 'Stock & refills', builder: () => const StockScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.payments, label: 'Cash handover', builder: () => const CashHandoverScreen(), onReturn: _refreshDash),
+          _Tile(icon: Icons.sync, label: 'Sync queue', builder: () => const QueueScreen(), onReturn: _refreshDash),
         ],
       ),
     );
@@ -80,7 +90,7 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _MyStats extends StatefulWidget {
-  const _MyStats();
+  const _MyStats({super.key});
   @override
   State<_MyStats> createState() => _MyStatsState();
 }
@@ -95,6 +105,8 @@ class _MyStatsState extends State<_MyStats> {
     super.initState();
     _load();
   }
+
+  void reload() => _load();
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -123,9 +135,12 @@ class _MyStatsState extends State<_MyStats> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero,
+                    onPressed: _load, icon: const Icon(Icons.refresh, size: 18)),
+                const SizedBox(width: 4),
                 SegmentedButton<String>(
                   style: const ButtonStyle(visualDensity: VisualDensity.compact),
                   segments: const [
@@ -177,7 +192,8 @@ class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
   final Widget Function() builder;
-  const _Tile({required this.icon, required this.label, required this.builder});
+  final VoidCallback? onReturn;
+  const _Tile({required this.icon, required this.label, required this.builder, this.onReturn});
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +202,10 @@ class _Tile extends StatelessWidget {
         leading: Icon(icon),
         title: Text(label),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => builder())),
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => builder()));
+          onReturn?.call();
+        },
       ),
     );
   }
