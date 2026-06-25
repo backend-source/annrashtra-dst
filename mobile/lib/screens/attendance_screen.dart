@@ -66,7 +66,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Future<void> _load() async {
     try {
-      final l = await context.read<AppState>().locations();
+      final all = await context.read<AppState>().locations();
+      // Only supervisor-confirmed ('active') spots can be checked into.
+      final l = all.where((x) => (x['status'] ?? 'active') == 'active').toList();
       setState(() {
         _locations = l;
         _locationId = l.isNotEmpty ? l.first['id'] as String : null;
@@ -196,7 +198,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
-              : ListView(
+              : _locations.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No confirmed spot yet.\n\nGo to "My spot", set your location, and ask your supervisor to confirm it. Then you can check in here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ),
+                    )
+                  : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     DropdownButtonFormField<String>(

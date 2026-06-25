@@ -16,6 +16,10 @@ export async function checkIn(input) {
 
   const location = await repo.getLocation(input.location_id);
   if (!location) throw new ApiError(404, 'Unknown location');
+  // The spot must be supervisor-confirmed before check-in is allowed there.
+  if (location.status && location.status !== 'active') {
+    throw new ApiError(409, 'This spot is awaiting supervisor confirmation');
+  }
 
   // Geofence check. If the location or device has no coordinates we can't measure,
   // so in_radius stays null. Out-of-radius is FLAGGED (in_radius=false), not blocked.

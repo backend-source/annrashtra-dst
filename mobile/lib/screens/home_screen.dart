@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import 'lead_form_screen.dart';
 import 'sale_form_screen.dart';
 import 'attendance_screen.dart';
+import 'my_spot_screen.dart';
 import 'stock_screen.dart';
 import 'cash_handover_screen.dart';
 import 'queue_screen.dart';
@@ -31,6 +32,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _Tile(icon: Icons.person_add, label: 'Capture lead', builder: () => const LeadFormScreen()),
           _Tile(icon: Icons.point_of_sale, label: 'Record sale', builder: () => const SaleFormScreen()),
+          _Tile(icon: Icons.place, label: 'My spot', builder: () => const MySpotScreen()),
           _Tile(icon: Icons.how_to_reg, label: 'Attendance', builder: () => const AttendanceScreen()),
           _Tile(icon: Icons.inventory_2, label: 'Stock & refills', builder: () => const StockScreen()),
           _Tile(icon: Icons.payments, label: 'Cash handover', builder: () => const CashHandoverScreen()),

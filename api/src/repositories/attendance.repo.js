@@ -2,7 +2,7 @@ import { query } from '../config/db.js';
 
 export async function getLocation(id) {
   const { rows } = await query(
-    'SELECT id, lat, lng, radius_m FROM locations WHERE id = $1',
+    'SELECT id, lat, lng, radius_m, status FROM locations WHERE id = $1',
     [id],
   );
   return rows[0] || null;

@@ -6,11 +6,17 @@ const router = Router();
 
 router.use(authenticate);
 
-// Promoters get their assigned spots; supervisors/admins get all.
+// Promoter gets their own spots; supervisor their team's; admin all.
 router.get('/', locations.list);
 
-// Admin manages the canopy-spot master (name, coordinates, radius, assignment).
-router.post('/', requireRole('admin'), locations.create);
+// Promoter proposes a spot from their current GPS (pending until confirmed).
+router.post('/propose', requireRole('promoter'), locations.propose);
+
+// Supervisor/admin confirms or rejects a proposed spot.
+router.post('/:id/confirm', requireRole('supervisor', 'admin'), locations.confirm);
+router.post('/:id/reject', requireRole('supervisor', 'admin'), locations.reject);
+
+// Admin can rename/adjust or delete a spot (coordinates come from the promoter's GPS).
 router.patch('/:id', requireRole('admin'), locations.update);
 router.delete('/:id', requireRole('admin'), locations.remove);
 

@@ -92,6 +92,12 @@ class AppState extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> products() => _listCached('/api/products', 'products');
   Future<List<Map<String, dynamic>>> locations() => _listCached('/api/locations', 'locations');
 
+  // Promoter proposes their canopy spot from the current GPS (online). It stays
+  // 'pending' until a supervisor confirms it; then it's usable for check-in.
+  Future<void> proposeSpot(double lat, double lng, String name) async {
+    await api.post('/api/locations/propose', {'lat': lat, 'lng': lng, 'name': name});
+  }
+
   // Refill requests for this promoter (online).
   Future<List<Map<String, dynamic>>> refillRequests() async {
     final res = await api.get('/api/inventory/refill-requests') as List;

@@ -269,13 +269,20 @@ await patch(`/api/products/${product2.id}`, { price: 750 }, admin.token); // res
 const locs = await get('/api/locations', token);
 assert('promoter locations list includes Test Park', Array.isArray(locs.body) && locs.body.some((l) => l.id === loc.id), `n=${locs.body?.length}`);
 
-// locations admin (create/edit) + users list — admin only
-const newLoc = await post('/api/locations', { name: 'E2E Spot', type: 'gym', lat: 19.2, lng: 72.9, radius_m: 100 }, admin.token);
-assert('admin creates location', newLoc.status === 201 && newLoc.body.name === 'E2E Spot', `status=${newLoc.status}`);
-const promoCreate = await post('/api/locations', { name: 'X' }, token);
-assert('promoter cannot create location (403)', promoCreate.status === 403, `status=${promoCreate.status}`);
-const editLoc = await patch(`/api/locations/${newLoc.body.id}`, { radius_m: 150 }, admin.token);
-assert('admin edits location radius', editLoc.status === 200 && editLoc.body.radius_m === 150, `r=${editLoc.body?.radius_m}`);
+// promoter proposes a spot from GPS -> pending with the auto 150m geofence
+const propose = await post('/api/locations/propose', { name: 'E2E Spot', lat: 19.2, lng: 72.9 }, token);
+assert('promoter proposes spot (pending, 150m)', propose.status === 201 && propose.body.status === 'pending' && Number(propose.body.radius_m) === 150, `status=${propose.status} r=${propose.body?.radius_m}`);
+// check-in at a not-yet-confirmed spot is rejected
+const ciPend = await post('/api/attendance/check-in', { client_uuid: randomUUID(), location_id: propose.body.id, shift: 'evening', selfie_url: selfie, gps_lat: 19.2, gps_lng: 72.9 }, token);
+assert('check-in at pending spot rejected (409)', ciPend.status === 409, `status=${ciPend.status}`);
+// only a promoter can propose
+const adminPropose = await post('/api/locations/propose', { lat: 1, lng: 1 }, admin.token);
+assert('non-promoter cannot propose (403)', adminPropose.status === 403, `status=${adminPropose.status}`);
+// supervisor confirms -> active
+const confirmLoc = await post(`/api/locations/${propose.body.id}/confirm`, {}, sup.token);
+assert('supervisor confirms spot -> active', confirmLoc.status === 200 && confirmLoc.body.status === 'active' && confirmLoc.body.confirmed_by === sup.user.id, `status=${confirmLoc.status}`);
+const editLoc = await patch(`/api/locations/${propose.body.id}`, { radius_m: 120 }, admin.token);
+assert('admin edits location radius', editLoc.status === 200 && editLoc.body.radius_m === 120, `r=${editLoc.body?.radius_m}`);
 const usersList = await get('/api/users?role=promoter', admin.token);
 assert('admin lists promoters', Array.isArray(usersList.body) && usersList.body.length >= 1, `n=${usersList.body?.length}`);
 const usersForbidden = await get('/api/users?role=promoter', token);
