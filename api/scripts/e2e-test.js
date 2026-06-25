@@ -277,22 +277,28 @@ assert('admin lists promoters', Array.isArray(usersList.body) && usersList.body.
 const usersForbidden = await get('/api/users?role=promoter', token);
 assert('promoter cannot list users (403)', usersForbidden.status === 403, `status=${usersForbidden.status}`);
 
-// ---- collections (cash handover): promoter hands over -> supervisor confirms ----
+// ---- collections (cash+UPI): promoter submits -> supervisor verifies (edits) -> promoter accepts ----
 const colUuid = randomUUID();
-const col = await post('/api/collections', { client_uuid: colUuid, amount: 320 }, token);
-assert('handover 201 pending', col.status === 201 && col.body.status === 'pending', `status=${col.status}`);
-const colReplay = await post('/api/collections', { client_uuid: colUuid, amount: 320 }, token);
+const col = await post('/api/collections', { client_uuid: colUuid, amount: 320, upi_amount: 80 }, token);
+assert('handover 201 pending', col.status === 201 && col.body.status === 'pending' && Number(col.body.upi_amount) === 80, `status=${col.status}`);
+const colReplay = await post('/api/collections', { client_uuid: colUuid, amount: 320, upi_amount: 80 }, token);
 assert('handover replay (same id)', colReplay.body.id === col.body.id);
 const colDup = await post('/api/collections', { client_uuid: randomUUID(), amount: 100 }, token);
 assert('one handover per day (409)', colDup.status === 409, `status=${colDup.status}`);
 const colList = await get('/api/collections', token);
 assert('promoter sees own handover', Array.isArray(colList.body) && colList.body.some((c) => c.id === col.body.id));
-const colByPromoter = await post(`/api/collections/${col.body.id}/confirm`, {}, token);
-assert('promoter cannot confirm (403)', colByPromoter.status === 403, `status=${colByPromoter.status}`);
-const colConfirm = await post(`/api/collections/${col.body.id}/confirm`, {}, sup.token);
-assert('supervisor confirm -> received', colConfirm.status === 200 && colConfirm.body.status === 'received' && colConfirm.body.confirmed_by === sup.user.id, `status=${colConfirm.status}`);
-const colConfirm2 = await post(`/api/collections/${col.body.id}/confirm`, {}, sup.token);
-assert('confirm idempotent (received)', colConfirm2.body.status === 'received');
+// promoter can't verify; supervisor verifies and edits the cash amount
+const colVerByProm = await post(`/api/collections/${col.body.id}/verify`, { amount: 320, upi_amount: 80 }, token);
+assert('promoter cannot verify (403)', colVerByProm.status === 403, `status=${colVerByProm.status}`);
+const colVerify = await post(`/api/collections/${col.body.id}/verify`, { amount: 300, upi_amount: 80 }, sup.token);
+assert('supervisor verify -> verified + edited', colVerify.status === 200 && colVerify.body.status === 'verified' && Number(colVerify.body.amount) === 300 && colVerify.body.confirmed_by === sup.user.id, `status=${colVerify.status} amt=${colVerify.body.amount}`);
+// supervisor can't accept (not their handover); promoter accepts -> received
+const colSupAccept = await post(`/api/collections/${col.body.id}/accept`, {}, sup.token);
+assert('supervisor cannot accept (403)', colSupAccept.status === 403, `status=${colSupAccept.status}`);
+const colAccept = await post(`/api/collections/${col.body.id}/accept`, {}, token);
+assert('promoter accept -> received', colAccept.status === 200 && colAccept.body.status === 'received', `status=${colAccept.status}`);
+const colAccept2 = await post(`/api/collections/${col.body.id}/accept`, {}, token);
+assert('accept idempotent (received)', colAccept2.body.status === 'received');
 const colExp = await fetch(`${BASE}/api/reports/export/collections?from=2000-01-01&to=2030-01-01`, { headers: { authorization: `Bearer ${admin.token}` } });
 const colExpText = await colExp.text();
 assert('collections CSV export', colExp.status === 200 && colExpText.startsWith('Promoter,Day,Expected cash'), `status=${colExp.status}`);

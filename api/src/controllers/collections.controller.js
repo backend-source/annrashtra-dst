@@ -17,9 +17,28 @@ export async function list(req, res, next) {
   }
 }
 
-export async function confirm(req, res, next) {
+// Supervisor verifies (and may edit the amounts).
+export async function verify(req, res, next) {
   try {
-    res.json(await service.confirm(req.params.id, req.user));
+    res.json(await service.verify(req.params.id, req.user, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Promoter's final acceptance.
+export async function accept(req, res, next) {
+  try {
+    res.json(await service.accept(req.params.id, req.user));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Promoter disputes the verified amounts.
+export async function dispute(req, res, next) {
+  try {
+    res.json(await service.dispute(req.params.id, req.user, req.body.note));
   } catch (err) {
     next(err);
   }

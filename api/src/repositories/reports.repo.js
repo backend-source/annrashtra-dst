@@ -94,7 +94,10 @@ export async function exportCollections(ids, from, to) {
     `SELECT u.name AS promoter, to_char(c.day,'YYYY-MM-DD') AS day,
             COALESCE((SELECT sum(total) FROM sales s WHERE s.promoter_id=c.promoter_id
                       AND s.payment_mode='cash' AND s.created_at::date=c.day),0) AS expected_cash,
-            c.amount AS handed_over, c.status, v.name AS confirmed_by,
+            c.amount AS handed_cash,
+            COALESCE((SELECT sum(total) FROM sales s WHERE s.promoter_id=c.promoter_id
+                      AND s.payment_mode='upi' AND s.created_at::date=c.day),0) AS expected_upi,
+            c.upi_amount AS handed_upi, c.status, v.name AS confirmed_by,
             to_char(c.confirmed_at,'YYYY-MM-DD HH24:MI') AS confirmed_at
      FROM collections c JOIN users u ON u.id=c.promoter_id LEFT JOIN users v ON v.id=c.confirmed_by
      WHERE c.promoter_id = ANY($1) AND c.day BETWEEN $2::date AND $3::date

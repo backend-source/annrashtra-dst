@@ -109,6 +109,16 @@ class AppState extends ChangeNotifier {
     return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  // Promoter's final acceptance of a supervisor-verified handover (online).
+  Future<void> acceptCollection(String id) async {
+    await api.post('/api/collections/$id/accept', {});
+  }
+
+  // Promoter disputes the verified amounts — back to the supervisor (online).
+  Future<void> disputeCollection(String id, String note) async {
+    await api.post('/api/collections/$id/dispute', {'note': note});
+  }
+
   // The promoter's own overview (revenue, leads, points...). Cached for offline.
   Future<Map<String, dynamic>?> overview() async {
     try {

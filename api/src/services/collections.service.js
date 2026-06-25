@@ -13,15 +13,22 @@ async function scopeIds(user) {
   return rows.map((r) => r.id);
 }
 
-// Promoter records a cash handover for today.
+function amounts(input) {
+  const amount = Number(input.amount) || 0;       // cash
+  const upi_amount = Number(input.upi_amount) || 0;
+  if (amount < 0 || upi_amount < 0) throw new ApiError(400, 'amounts must be non-negative');
+  return { amount, upi_amount };
+}
+
+// Promoter records a cash + UPI handover for today.
 export async function create(input) {
   if (!input.promoter_id) throw new ApiError(400, 'promoter_id is required');
-  const amount = Number(input.amount);
-  if (!(amount >= 0)) throw new ApiError(400, 'amount must be a non-negative number');
+  const { amount, upi_amount } = amounts(input);
+  if (amount + upi_amount <= 0) throw new ApiError(400, 'enter a cash or UPI amount');
   try {
-    return await repo.insert({ promoter_id: input.promoter_id, amount, note: input.note, client_uuid: input.client_uuid });
+    return await repo.insert({ promoter_id: input.promoter_id, amount, upi_amount, note: input.note, client_uuid: input.client_uuid });
   } catch (err) {
-    if (err.code === '23505') throw new ApiError(409, 'Cash already handed over for today');
+    if (err.code === '23505') throw new ApiError(409, 'Handover already submitted for today');
     throw err;
   }
 }
@@ -31,12 +38,37 @@ export async function list(user, { status }) {
   return repo.list({ promoterIds: ids, status });
 }
 
-// Supervisor/admin verifies and confirms receipt.
-export async function confirm(id, user) {
+// Supervisor/admin verifies the handover, optionally editing the amounts, then it
+// goes back to the promoter to accept.
+export async function verify(id, user, input) {
+  const { amount, upi_amount } = amounts(input);
   return withTransaction(async (client) => {
     const row = await repo.getForUpdate(client, id);
     if (!row) throw new ApiError(404, 'Collection not found');
+    if (row.status === 'received') throw new ApiError(409, 'Already accepted by the promoter');
+    return repo.verify(client, id, user.id, { amount, upi_amount, note: input.note });
+  });
+}
+
+// Promoter gives the final acceptance of the verified amounts.
+export async function accept(id, user) {
+  return withTransaction(async (client) => {
+    const row = await repo.getForUpdate(client, id);
+    if (!row) throw new ApiError(404, 'Collection not found');
+    if (row.promoter_id !== user.id) throw new ApiError(403, 'Not your handover');
     if (row.status === 'received') return row; // idempotent
-    return repo.confirm(client, id, user.id);
+    if (row.status !== 'verified') throw new ApiError(409, 'Waiting for the supervisor to verify first');
+    return repo.accept(client, id);
+  });
+}
+
+// Promoter disputes the verified amounts — sends it back to the supervisor.
+export async function dispute(id, user, note) {
+  return withTransaction(async (client) => {
+    const row = await repo.getForUpdate(client, id);
+    if (!row) throw new ApiError(404, 'Collection not found');
+    if (row.promoter_id !== user.id) throw new ApiError(403, 'Not your handover');
+    if (row.status !== 'verified') throw new ApiError(409, 'Nothing to dispute');
+    return repo.dispute(client, id, note);
   });
 }
