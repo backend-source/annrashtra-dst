@@ -10,6 +10,9 @@ router.use(authenticate);
 // Supervisor/admin review list of check-ins (for canopy verification).
 router.get('/', requireRole('supervisor', 'admin'), attendance.list);
 
+// A promoter's own recent check-ins (so the app can offer check-out).
+router.get('/mine', attendance.mine);
+
 // Promoter check-in (offline-safe, territory-checked) and check-out.
 router.post('/check-in', scopeToOwnData, requireClientUuid, attendance.checkIn);
 router.post('/:id/check-out', attendance.checkOut);

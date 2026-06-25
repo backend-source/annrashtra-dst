@@ -74,6 +74,11 @@ export function listForReview(user) {
   return repo.listForReview({ supervisorId });
 }
 
+// A promoter's own recent check-ins (for the app's check-out screen).
+export function listForPromoter(promoterId) {
+  return repo.listForPromoter(promoterId);
+}
+
 export async function checkOut(id, user) {
   const att = await repo.getById(id);
   if (!att) throw new ApiError(404, 'Attendance not found');

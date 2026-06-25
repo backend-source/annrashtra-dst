@@ -71,6 +71,22 @@ export async function listForReview({ supervisorId }) {
   return rows;
 }
 
+// A promoter's own recent check-ins (last few days) so the app can offer check-out.
+export async function listForPromoter(promoterId) {
+  const { rows } = await query(
+    `SELECT a.id, a.shift, a.in_radius,
+            to_char(a.check_in_at,'YYYY-MM-DD HH24:MI') AS check_in_at,
+            to_char(a.check_out_at,'YYYY-MM-DD HH24:MI') AS check_out_at,
+            l.name AS location_name
+     FROM attendance a
+     LEFT JOIN locations l ON l.id = a.location_id
+     WHERE a.promoter_id = $1 AND a.check_in_at >= current_date - 2
+     ORDER BY a.check_in_at DESC LIMIT 10`,
+    [promoterId],
+  );
+  return rows;
+}
+
 // Supervisor verifies the canopy activity for an attendance record.
 export async function setVerifiedBy(id, supervisorId) {
   const { rows } = await query(

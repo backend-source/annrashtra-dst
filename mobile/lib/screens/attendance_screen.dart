@@ -28,11 +28,40 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _locating = false;
   bool _submitting = false;
   String? _error;
+  List<Map<String, dynamic>> _myCheckins = [];
+  String? _coId; // id currently being checked out
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadMine();
+  }
+
+  // The promoter's recent check-ins (online) so they can check out. Best-effort:
+  // if offline it just stays empty.
+  Future<void> _loadMine() async {
+    try {
+      final m = await context.read<AppState>().myAttendance();
+      if (mounted) setState(() => _myCheckins = m);
+    } on ApiException {
+      // offline — leave the list as-is
+    }
+  }
+
+  Future<void> _checkOut(String id) async {
+    setState(() => _coId = id);
+    try {
+      await context.read<AppState>().checkOut(id);
+      await _loadMine();
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.isNetwork ? 'Check-out needs a connection' : e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _coId = null);
+    }
   }
 
   Future<void> _load() async {
@@ -225,7 +254,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       Expanded(child: _photoBox('Canopy', _canopyBytes, () => _capture(false))),
                     ]),
                     const SizedBox(height: 8),
-                    const Text('Tap a box to capture with the camera. Photos upload once Firebase Storage is configured.',
+                    const Text('Tap a box to capture with the camera. Photos upload when you are online.',
                         style: TextStyle(color: Colors.black54, fontSize: 12)),
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -233,8 +262,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       icon: const Icon(Icons.login),
                       label: Text(_submitting ? 'Saving…' : 'Check in'),
                     ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('My recent check-ins', style: TextStyle(fontWeight: FontWeight.w600)),
+                        IconButton(onPressed: _loadMine, icon: const Icon(Icons.refresh)),
+                      ],
+                    ),
+                    if (_myCheckins.isEmpty)
+                      const Text('None yet (or offline). Synced check-ins appear here.',
+                          style: TextStyle(color: Colors.black54, fontSize: 12)),
+                    ..._myCheckins.map(_checkinCard),
                   ],
                 ),
+    );
+  }
+
+  Widget _checkinCard(Map<String, dynamic> c) {
+    final id = c['id'] as String;
+    final out = c['check_out_at'] as String?;
+    final busy = _coId == id;
+    return Card(
+      child: ListTile(
+        title: Text('${c['shift']} · ${c['location_name'] ?? '—'}'),
+        subtitle: Text('In: ${c['check_in_at']}${out != null ? '\nOut: $out' : ''}'),
+        isThreeLine: out != null,
+        trailing: out != null
+            ? const Chip(label: Text('checked out'))
+            : FilledButton(
+                onPressed: busy ? null : () => _checkOut(id),
+                child: Text(busy ? '…' : 'Check out'),
+              ),
+      ),
     );
   }
 }

@@ -103,6 +103,17 @@ class AppState extends ChangeNotifier {
     await api.post('/api/inventory/refill-requests/$id/confirm', {'delivered_qty': deliveredQty});
   }
 
+  // The promoter's own recent check-ins (online) — used to offer check-out.
+  Future<List<Map<String, dynamic>>> myAttendance() async {
+    final res = await api.get('/api/attendance/mine') as List;
+    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  // Promoter checks out of a check-in (online).
+  Future<void> checkOut(String id) async {
+    await api.post('/api/attendance/$id/check-out', {});
+  }
+
   // The promoter's cash handovers (online).
   Future<List<Map<String, dynamic>>> collections() async {
     final res = await api.get('/api/collections') as List;

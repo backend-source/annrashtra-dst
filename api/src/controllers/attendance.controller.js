@@ -8,6 +8,15 @@ export async function list(req, res, next) {
   }
 }
 
+// Promoter's own recent check-ins (to offer check-out).
+export async function mine(req, res, next) {
+  try {
+    res.json(await service.listForPromoter(req.user.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function checkIn(req, res, next) {
   try {
     const row = await service.checkIn(req.body);
