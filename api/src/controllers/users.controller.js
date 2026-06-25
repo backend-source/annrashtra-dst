@@ -9,10 +9,10 @@ export async function list(req, res, next) {
   }
 }
 
-// Admin creates a promoter (name, mobile, optional emp_code, optional supervisor).
+// Admin creates a promoter or supervisor (name, mobile, role, optional emp_code/supervisor).
 export async function create(req, res, next) {
   try {
-    res.status(201).json(await service.createPromoter(req.body));
+    res.status(201).json(await service.createUser(req.body));
   } catch (err) {
     next(err);
   }
