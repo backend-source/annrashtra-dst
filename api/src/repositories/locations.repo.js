@@ -42,3 +42,9 @@ export async function update(id, loc) {
   );
   return rows[0] || null;
 }
+
+// Hard-delete a location. Throws a FK error (23503) if it has check-ins/leads/sales.
+export async function remove(id) {
+  const { rows } = await query(`DELETE FROM locations WHERE id = $1 RETURNING id`, [id]);
+  return rows[0] || null;
+}

@@ -23,3 +23,11 @@ export async function update(req, res, next) {
     next(err);
   }
 }
+
+export async function remove(req, res, next) {
+  try {
+    res.json(await service.remove(req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}

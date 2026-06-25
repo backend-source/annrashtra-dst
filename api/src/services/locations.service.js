@@ -28,3 +28,17 @@ export async function update(id, loc) {
   if (!updated) throw new ApiError(404, 'Location not found');
   return updated;
 }
+
+export async function remove(id) {
+  try {
+    const removed = await repo.remove(id);
+    if (!removed) throw new ApiError(404, 'Location not found');
+    return { deleted: true };
+  } catch (err) {
+    // Referenced by check-ins / leads / sales — keep it so the history stays intact.
+    if (err.code === '23503') {
+      throw new ApiError(409, 'This location has activity (check-ins, leads or sales) and cannot be deleted. You can reassign or rename it instead.');
+    }
+    throw err;
+  }
+}

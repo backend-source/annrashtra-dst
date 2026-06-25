@@ -4,6 +4,7 @@ import { useAsync } from '../components/useAsync.js';
 
 const TYPES = ['park', 'gym', 'society', 'club'];
 const blank = { name: '', area: '', type: 'park', lat: '', lng: '', radius_m: 120, assigned_to: '' };
+const fld = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 };
 
 export default function Locations({ user }) {
   const isAdmin = user?.role === 'admin';
@@ -11,7 +12,18 @@ export default function Locations({ user }) {
   const promoters = useAsync(() => (isAdmin ? api.get('/api/users?role=promoter') : Promise.resolve([])));
   const [form, setForm] = useState(null); // null = closed; {} = new; {...} = editing
   const [busy, setBusy] = useState(false);
+  const [rowBusy, setRowBusy] = useState(null);
   const [msg, setMsg] = useState('');
+
+  async function remove(l) {
+    if (!window.confirm(`Delete location "${l.name}"? This can't be undone.`)) return;
+    setRowBusy(l.id); setMsg('');
+    try {
+      await api.del(`/api/locations/${l.id}`);
+      locs.reload();
+    } catch (e) { setMsg(e.message); } // e.g. "has activity — can't delete"
+    finally { setRowBusy(null); }
+  }
 
   function open(loc) {
     setMsg('');
@@ -49,18 +61,22 @@ export default function Locations({ user }) {
 
       {form && (
         <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: 16, margin: '12px 0', display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
-          <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input placeholder="Area" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input placeholder="Latitude" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
-          <input placeholder="Longitude" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
-          <input placeholder="Radius (m)" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: e.target.value })} />
-          <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}>
-            <option value="">— assign promoter —</option>
-            {(promoters.data || []).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.mobile})</option>)}
-          </select>
+          <label style={fld}>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+          <label style={fld}>Area<input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} /></label>
+          <label style={fld}>Type
+            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label style={fld}>Latitude<input value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} /></label>
+          <label style={fld}>Longitude<input value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} /></label>
+          <label style={fld}>Radius (m)<input type="number" min="1" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: e.target.value })} /></label>
+          <label style={fld}>Assigned promoter
+            <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}>
+              <option value="">— assign promoter —</option>
+              {(promoters.data || []).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.mobile})</option>)}
+            </select>
+          </label>
           <div className="actions" style={{ gridColumn: '1 / -1' }}>
             <button onClick={save} disabled={busy || !form.name.trim()}>{busy ? 'Saving…' : 'Save'}</button>
             <button className="link" onClick={() => setForm(null)}>Cancel</button>
@@ -89,7 +105,10 @@ export default function Locations({ user }) {
                 </td>
                 <td>{l.radius_m} m</td>
                 <td>{l.assigned_name || '—'}</td>
-                <td className="actions">{isAdmin && <button onClick={() => open(l)}>Edit</button>}</td>
+                <td className="actions">
+                  {isAdmin && <button onClick={() => open(l)}>Edit</button>}
+                  {isAdmin && <button className="link" disabled={rowBusy === l.id} onClick={() => remove(l)} style={{ color: '#b3361f' }}>Delete</button>}
+                </td>
               </tr>
             ))}
           </tbody>

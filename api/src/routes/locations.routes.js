@@ -12,5 +12,6 @@ router.get('/', locations.list);
 // Admin manages the canopy-spot master (name, coordinates, radius, assignment).
 router.post('/', requireRole('admin'), locations.create);
 router.patch('/:id', requireRole('admin'), locations.update);
+router.delete('/:id', requireRole('admin'), locations.remove);
 
 export default router;
