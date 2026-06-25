@@ -59,16 +59,28 @@ export async function listForReview({ supervisorId }) {
   const { rows } = await query(
     `SELECT a.id, a.shift, a.check_in_at, a.check_out_at, a.gps_lat, a.gps_lng,
             a.in_radius, a.selfie_url, a.canopy_photo_url, a.verified_by,
-            u.name AS promoter_name, l.name AS location_name, v.name AS verified_by_name
+            a.override_by, a.override_reason,
+            u.name AS promoter_name, u.emp_code AS promoter_code,
+            l.name AS location_name, v.name AS verified_by_name, o.name AS override_by_name
      FROM attendance a
      JOIN users u ON u.id = a.promoter_id
      LEFT JOIN locations l ON l.id = a.location_id
      LEFT JOIN users v ON v.id = a.verified_by
+     LEFT JOIN users o ON o.id = a.override_by
      WHERE ${where}
      ORDER BY a.check_in_at DESC LIMIT 100`,
     params,
   );
   return rows;
+}
+
+// Supervisor approves a flagged out-of-geofence check-in with a reason.
+export async function setOverride(id, supervisorId, reason) {
+  const { rows } = await query(
+    'UPDATE attendance SET override_by = $2, override_reason = $3 WHERE id = $1 RETURNING *',
+    [id, supervisorId, reason],
+  );
+  return rows[0] || null;
 }
 
 // A promoter's own recent check-ins (last few days) so the app can offer check-out.

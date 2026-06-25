@@ -34,10 +34,28 @@ export default function Attendance() {
     finally { setBusy(null); }
   }
 
+  async function override(a) {
+    const reason = window.prompt(`Override ${a.promoter_name}'s out-of-geofence check-in — reason?`);
+    if (!reason || !reason.trim()) return;
+    setBusy(a.id); setMsg('');
+    try {
+      await api.post(`/api/attendance/${a.id}/override`, { reason: reason.trim() });
+      reload();
+    } catch (err) { setMsg(err.message); }
+    finally { setBusy(null); }
+  }
+
+  const flagged = (data || []).filter((a) => a.in_radius === false && !a.override_by).length;
+
   return (
     <section>
       <h2>Canopy verification</h2>
-      <p className="muted">Review promoter check-ins and verify the canopy activity. Tap a photo to view it full size.</p>
+      <p className="muted">Review promoter check-ins from the photos and map, then verify. Out-of-geofence check-ins are flagged — review and override them with a reason.</p>
+      {flagged > 0 && (
+        <p style={{ background: '#f4d9d2', color: '#b3361f', padding: '8px 12px', borderRadius: 8, fontWeight: 600 }}>
+          ⚠ {flagged} check-in{flagged > 1 ? 's' : ''} outside the geofence need review
+        </p>
+      )}
       {msg && <p className="error">{msg}</p>}
       {loading && <p className="muted">Loading…</p>}
       {error && <p className="error">{error}</p>}
@@ -45,16 +63,19 @@ export default function Attendance() {
       {data && data.length > 0 && (
         <table>
           <thead>
-            <tr><th>When</th><th>Promoter</th><th>Location</th><th>Shift</th><th>Territory</th><th>Map</th><th>Photos</th><th>Status</th><th></th></tr>
+            <tr><th>When</th><th>Promoter</th><th>Location</th><th>Shift</th><th>Geofence</th><th>Map</th><th>Photos</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             {data.map((a) => (
               <tr key={a.id}>
                 <td>{new Date(a.check_in_at).toLocaleString()}</td>
-                <td>{a.promoter_name}</td>
+                <td>{a.promoter_name}{a.promoter_code ? <div className="muted" style={{ fontSize: 12 }}>{a.promoter_code}</div> : null}</td>
                 <td>{a.location_name || '—'}</td>
                 <td>{a.shift}</td>
-                <td>{radiusTag(a.in_radius)}</td>
+                <td>
+                  {radiusTag(a.in_radius)}
+                  {a.override_by && <div className="muted" style={{ fontSize: 12 }}>✓ override · {a.override_by_name}<br />“{a.override_reason}”</div>}
+                </td>
                 <td>
                   {a.gps_lat != null && a.gps_lng != null
                     ? <a href={`https://maps.google.com/?q=${a.gps_lat},${a.gps_lng}`} target="_blank" rel="noreferrer">View on map</a>
@@ -72,6 +93,9 @@ export default function Attendance() {
                     : <span className="tag">pending</span>}
                 </td>
                 <td className="actions">
+                  {a.in_radius === false && !a.override_by && (
+                    <button disabled={busy === a.id} onClick={() => override(a)} style={{ background: '#b3361f' }}>Override</button>
+                  )}
                   {!a.verified_by && (
                     <button disabled={busy === a.id} onClick={() => verify(a.id)}>Verify</button>
                   )}

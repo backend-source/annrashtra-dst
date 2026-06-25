@@ -138,17 +138,13 @@ assert('check-in 201 in_radius=true', ci.status === 201 && ci.body.in_radius ===
 const ciReplay = await post('/api/attendance/check-in', { client_uuid: ciUuid, location_id: loc.id, shift: 'morning', selfie_url: selfie, ...near }, token);
 assert('check-in replay idempotent (same id)', ciReplay.body.id === ci.body.id);
 
-// out-of-radius, no override -> 403 (territory check runs before the daily-unique)
-const terr = await post('/api/attendance/check-in', { client_uuid: randomUUID(), location_id: loc.id, shift: 'morning', selfie_url: selfie, ...far }, token);
-assert('out-of-radius blocked (403)', terr.status === 403, `status=${terr.status}`);
-
 // in-radius again, new uuid, same shift/day -> 409 already checked in
 const dup = await post('/api/attendance/check-in', { client_uuid: randomUUID(), location_id: loc.id, shift: 'morning', selfie_url: selfie, ...near }, token);
 assert('second check-in same shift (409)', dup.status === 409, `status=${dup.status}`);
 
-// evening, out-of-radius, WITH supervisor override -> 201 in_radius=false
-const ov = await post('/api/attendance/check-in', { client_uuid: randomUUID(), location_id: loc.id, shift: 'evening', selfie_url: selfie, ...far, override_by: supervisorRow.id, override_reason: 'rain shifted canopy' }, token);
-assert('override check-in 201 in_radius=false', ov.status === 201 && ov.body.in_radius === false && ov.body.override_by === supervisorRow.id, `status=${ov.status} in_radius=${ov.body.in_radius}`);
+// evening, out-of-geofence -> saved & FLAGGED, not blocked (soft geofence)
+const ov = await post('/api/attendance/check-in', { client_uuid: randomUUID(), location_id: loc.id, shift: 'evening', selfie_url: selfie, ...far }, token);
+assert('out-of-geofence saved & flagged (201, in_radius=false)', ov.status === 201 && ov.body.in_radius === false, `status=${ov.status} in_radius=${ov.body.in_radius}`);
 
 // check-out (idempotent)
 const co = await post(`/api/attendance/${ci.body.id}/check-out`, {}, token);
@@ -166,6 +162,14 @@ const attForbidden = await get('/api/attendance', token);
 assert('promoter cannot list attendance (403)', attForbidden.status === 403, `status=${attForbidden.status}`);
 const ok = await post(`/api/attendance/${ci.body.id}/verify`, {}, sup.token);
 assert('supervisor verify sets verified_by', ok.status === 200 && ok.body.verified_by === sup.user.id, `status=${ok.status}`);
+
+// override a flagged out-of-geofence check-in (with a reason); promoter cannot
+const ovrBad = await post(`/api/attendance/${ov.body.id}/override`, { reason: 'nope' }, token);
+assert('promoter cannot override (403)', ovrBad.status === 403, `status=${ovrBad.status}`);
+const ovrNoReason = await post(`/api/attendance/${ov.body.id}/override`, {}, sup.token);
+assert('override requires a reason (400)', ovrNoReason.status === 400, `status=${ovrNoReason.status}`);
+const ovr = await post(`/api/attendance/${ov.body.id}/override`, { reason: 'rain shifted canopy' }, sup.token);
+assert('supervisor override sets override_by + reason', ovr.status === 200 && ovr.body.override_by === sup.user.id && ovr.body.override_reason === 'rain shifted canopy', `status=${ovr.status}`);
 
 // ---- inventory: opening, daily cycle, refill request + approve/reject ----
 const openUuid = randomUUID();

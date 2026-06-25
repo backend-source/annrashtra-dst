@@ -17,7 +17,8 @@ router.get('/mine', attendance.mine);
 router.post('/check-in', scopeToOwnData, requireClientUuid, attendance.checkIn);
 router.post('/:id/check-out', attendance.checkOut);
 
-// Supervisor/admin verifies canopy activity.
+// Supervisor/admin verifies canopy activity, or overrides a flagged check-in.
 router.post('/:id/verify', requireRole('supervisor', 'admin'), attendance.verify);
+router.post('/:id/override', requireRole('supervisor', 'admin'), attendance.override);
 
 export default router;

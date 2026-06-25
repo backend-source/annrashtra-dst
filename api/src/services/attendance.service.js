@@ -4,9 +4,10 @@ import * as repo from '../repositories/attendance.repo.js';
 
 const VALID_SHIFTS = new Set(['morning', 'evening']);
 
-// Check-in with territory lock. Activity is allowed only inside the location's
-// radius_m; a supervisor may override an out-of-radius check-in. Idempotent on
-// client_uuid; one check-in per promoter/shift/day.
+// Check-in with a soft geofence. The promoter is never blocked: we record the
+// GPS + photos and flag whether they were inside the location's radius_m. A
+// supervisor reviews flagged (out-of-geofence) check-ins on the dashboard and
+// overrides them with a reason. Idempotent on client_uuid; one per shift/day.
 export async function checkIn(input) {
   if (!input.promoter_id) throw new ApiError(400, 'promoter_id is required');
   if (!VALID_SHIFTS.has(input.shift)) throw new ApiError(400, "shift must be 'morning' or 'evening'");
@@ -16,8 +17,8 @@ export async function checkIn(input) {
   const location = await repo.getLocation(input.location_id);
   if (!location) throw new ApiError(404, 'Unknown location');
 
-  // Territory check. If the location or device has no coordinates we can't measure,
-  // so in_radius stays null and we don't block.
+  // Geofence check. If the location or device has no coordinates we can't measure,
+  // so in_radius stays null. Out-of-radius is FLAGGED (in_radius=false), not blocked.
   let inRadius = null;
   let distance = null;
   const haveCoords =
@@ -26,23 +27,6 @@ export async function checkIn(input) {
   if (haveCoords) {
     distance = distanceMeters(location.lat, location.lng, input.gps_lat, input.gps_lng);
     inRadius = distance <= location.radius_m;
-  }
-
-  // Out of radius -> require a valid supervisor override.
-  let overrideBy = null;
-  let overrideReason = null;
-  if (inRadius === false) {
-    if (!input.override_by || !input.override_reason) {
-      throw new ApiError(403, 'Outside territory radius; supervisor override required', {
-        distance_m: Math.round(distance), radius_m: location.radius_m,
-      });
-    }
-    const overrider = await repo.getUser(input.override_by);
-    if (!overrider || !['supervisor', 'admin'].includes(overrider.role) || overrider.status !== 'active') {
-      throw new ApiError(403, 'override_by must be an active supervisor or admin');
-    }
-    overrideBy = overrider.id;
-    overrideReason = input.override_reason;
   }
 
   try {
@@ -55,8 +39,8 @@ export async function checkIn(input) {
       selfie_url: input.selfie_url,
       canopy_photo_url: input.canopy_photo_url,
       in_radius: inRadius,
-      override_by: overrideBy,
-      override_reason: overrideReason,
+      override_by: null,
+      override_reason: null,
       client_uuid: input.client_uuid,
     });
     return { ...row, distance_m: distance == null ? null : Math.round(distance) };
@@ -66,6 +50,16 @@ export async function checkIn(input) {
     }
     throw err;
   }
+}
+
+// Supervisor/admin approves (overrides) a flagged out-of-geofence check-in, with
+// a reason — after reviewing the selfie/canopy photos and the map.
+export async function override(id, user, reason) {
+  if (!['supervisor', 'admin'].includes(user.role)) throw new ApiError(403, 'Only a supervisor or admin can override');
+  if (!reason || !reason.trim()) throw new ApiError(400, 'A reason is required to override');
+  const updated = await repo.setOverride(id, user.id, reason.trim());
+  if (!updated) throw new ApiError(404, 'Attendance not found');
+  return updated;
 }
 
 // Supervisor/admin review list. Supervisors are scoped to their own promoters.

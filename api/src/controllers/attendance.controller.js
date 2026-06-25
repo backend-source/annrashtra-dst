@@ -41,3 +41,12 @@ export async function verify(req, res, next) {
     next(err);
   }
 }
+
+// Supervisor overrides a flagged out-of-geofence check-in with a reason.
+export async function override(req, res, next) {
+  try {
+    res.json(await service.override(req.params.id, req.user, req.body.reason));
+  } catch (err) {
+    next(err);
+  }
+}
