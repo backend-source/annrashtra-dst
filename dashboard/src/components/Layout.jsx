@@ -10,7 +10,7 @@ import Collections from '../pages/Collections.jsx';
 
 const TABS = [
   { id: 'overview', label: 'Overview', el: Overview },
-  { id: 'refills', label: 'Refill Approvals', el: RefillApprovals },
+  { id: 'refills', label: 'Stock', el: RefillApprovals },
   { id: 'collections', label: 'Cash Collections', el: Collections },
   { id: 'attendance', label: 'Canopy Verification', el: Attendance },
   { id: 'leads', label: 'Leads', el: Leads },

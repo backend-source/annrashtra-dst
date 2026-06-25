@@ -88,6 +88,7 @@ class _MyStats extends StatefulWidget {
 class _MyStatsState extends State<_MyStats> {
   Map<String, dynamic>? _data;
   bool _loading = true;
+  String _period = 'today';
 
   @override
   void initState() {
@@ -96,7 +97,8 @@ class _MyStatsState extends State<_MyStats> {
   }
 
   Future<void> _load() async {
-    final d = await context.read<AppState>().overview();
+    setState(() => _loading = true);
+    final d = await context.read<AppState>().myDashboard(_period);
     if (mounted) setState(() { _data = d; _loading = false; });
   }
 
@@ -112,30 +114,58 @@ class _MyStatsState extends State<_MyStats> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Card(child: Padding(padding: EdgeInsets.all(20), child: Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)))));
-    }
-    if (_data == null) return const SizedBox.shrink();
-    final k = Map<String, dynamic>.from(_data!['kpis'] as Map);
+    final d = _data;
+    final stock = (d?['stock_by_sku'] as List?) ?? const [];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('My week', style: TextStyle(fontWeight: FontWeight.w600)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+                SegmentedButton<String>(
+                  style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                  segments: const [
+                    ButtonSegment(value: 'today', label: Text('Today')),
+                    ButtonSegment(value: 'week', label: Text('Week')),
+                  ],
+                  selected: {_period},
+                  onSelectionChanged: (s) { setState(() => _period = s.first); _load(); },
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
-            Row(children: [
-              _stat('Revenue', '₹${k['revenue_week']}'),
-              _stat('Units', '${k['units_week']}'),
-              _stat('Points', '${k['points']}'),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              _stat('Leads', '${k['leads_total']}'),
-              _stat('Converted', '${k['leads_converted']}'),
-              _stat('Check-ins today', '${k['checkins_today']}'),
-            ]),
+            if (_loading)
+              const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+            else if (d == null)
+              const Text('Stats unavailable offline.', style: TextStyle(color: Colors.black54))
+            else ...[
+              Row(children: [
+                _stat('Leads', '${d['leads']}'),
+                _stat('Cash in hand', '₹${d['cash_in_hand']}'),
+                _stat('UPI in hand', '₹${d['upi_in_hand']}'),
+                _stat('Points', '${d['points']}'),
+              ]),
+              const Divider(height: 24),
+              const Text('Stock in hand', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 6),
+              if (stock.isEmpty)
+                const Text('—', style: TextStyle(color: Colors.black54))
+              else
+                ...stock.map((s) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('${s['sku']}'),
+                          Text('${s['in_hand']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    )),
+            ],
           ],
         ),
       ),

@@ -3,10 +3,20 @@ import { api } from '../api.js';
 import { useAsync } from '../components/useAsync.js';
 
 export default function RefillApprovals({ user }) {
+  const isAdmin = user?.role === 'admin';
   const { data, error, loading, reload } = useAsync(() => api.get('/api/inventory/refill-requests?status=pending'));
+  const promoters = useAsync(() => api.get('/api/users?role=promoter'));
+  const products = useAsync(() => api.get('/api/products'));
   const [busy, setBusy] = useState(null);
   const [msg, setMsg] = useState('');
-  const isAdmin = user?.role === 'admin';
+
+  // Opening-stock form (admin sets a promoter's starting stock once).
+  const [open, setOpen] = useState({ promoter_id: '', product_id: '', qty: '' });
+  const [openBusy, setOpenBusy] = useState(false);
+  const [openMsg, setOpenMsg] = useState('');
+
+  const pName = (id) => (promoters.data || []).find((p) => p.id === id)?.name || id.slice(0, 8);
+  const prodName = (id) => { const p = (products.data || []).find((x) => x.id === id); return p ? (p.sku || p.name) : id.slice(0, 8); };
 
   async function decide(id, action) {
     setBusy(id); setMsg('');
@@ -17,9 +27,45 @@ export default function RefillApprovals({ user }) {
     finally { setBusy(null); }
   }
 
+  async function setOpening() {
+    setOpenBusy(true); setOpenMsg('');
+    try {
+      await api.post('/api/inventory/opening', {
+        promoter_id: open.promoter_id, product_id: open.product_id, qty: Number(open.qty),
+      });
+      setOpen({ promoter_id: '', product_id: '', qty: '' });
+      setOpenMsg('✓ Opening stock set.');
+    } catch (e) { setOpenMsg(e.message); }
+    finally { setOpenBusy(false); }
+  }
+
+  const openValid = open.promoter_id && open.product_id && Number(open.qty) > 0;
+
   return (
     <section>
-      <h2>Pending refill requests</h2>
+      <h2>Stock</h2>
+
+      {isAdmin && (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: 16, margin: '12px 0' }}>
+          <strong>Set opening stock</strong>
+          <p className="muted" style={{ marginTop: 4 }}>Give a promoter their starting stock once — after that, each day's closing carries to the next day automatically.</p>
+          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
+            <select value={open.promoter_id} onChange={(e) => setOpen({ ...open, promoter_id: e.target.value })}>
+              <option value="">— promoter —</option>
+              {(promoters.data || []).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.mobile})</option>)}
+            </select>
+            <select value={open.product_id} onChange={(e) => setOpen({ ...open, product_id: e.target.value })}>
+              <option value="">— product —</option>
+              {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.sku || p.name}</option>)}
+            </select>
+            <input type="number" min="1" placeholder="Quantity" value={open.qty} onChange={(e) => setOpen({ ...open, qty: e.target.value })} />
+            <button onClick={setOpening} disabled={openBusy || !openValid}>{openBusy ? 'Saving…' : 'Set opening'}</button>
+          </div>
+          {openMsg && <p className={openMsg.startsWith('✓') ? 'muted' : 'error'} style={{ marginTop: 8 }}>{openMsg}</p>}
+        </div>
+      )}
+
+      <h3>Pending refill requests</h3>
       <p className="muted">{isAdmin
         ? 'Approve or reject. After approval, the promoter confirms the actual quantity delivered, which adds the stock.'
         : 'Read-only — only an admin can approve or reject refill requests.'}</p>
@@ -34,8 +80,8 @@ export default function RefillApprovals({ user }) {
             {data.map((r) => (
               <tr key={r.id}>
                 <td>{new Date(r.requested_at).toLocaleString()}</td>
-                <td className="mono">{r.promoter_id.slice(0, 8)}</td>
-                <td className="mono">{r.product_id.slice(0, 8)}</td>
+                <td>{pName(r.promoter_id)}</td>
+                <td>{prodName(r.product_id)}</td>
                 <td>{r.qty}</td>
                 {isAdmin && (
                   <td className="actions">

@@ -11,8 +11,9 @@ router.use(authenticate);
 // supervisor/admin may pass ?promoter_id=.
 router.get('/', inv.dailyCycle);
 
-// Promoter records opening allocation (offline-safe).
-router.post('/opening', scopeToOwnData, requireClientUuid, inv.recordOpening);
+// Admin sets a promoter's opening stock (once). Thereafter the daily rollover
+// (closing -> next opening) handles it; promoters no longer set opening.
+router.post('/opening', requireRole('admin'), inv.recordOpening);
 
 // Refill workflow: promoter requests; ADMIN approves/rejects; promoter confirms delivery.
 router.post('/refill-requests', scopeToOwnData, requireClientUuid, inv.requestRefill);

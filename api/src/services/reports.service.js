@@ -40,6 +40,12 @@ export async function overview(user) {
   return { scope: user.role, promoters_in_scope: ids.length, ...data };
 }
 
+// Promoter's own dashboard (today | week). Promoter-only — uses their own id.
+export function me(user, period) {
+  const p = period === 'week' ? 'week' : 'today';
+  return repo.promoterSummary(user.id, p);
+}
+
 // Build a CSV for a report type, scoped to the user's role.
 export async function exportCsv(user, type, from, to) {
   const spec = EXPORTS[type];

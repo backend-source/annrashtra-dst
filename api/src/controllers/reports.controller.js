@@ -11,6 +11,15 @@ export async function overview(req, res, next) {
   }
 }
 
+// Promoter's own dashboard summary (?period=today|week).
+export async function me(req, res, next) {
+  try {
+    res.json(await service.me(req.user, req.query.period));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // CSV download. Defaults to the last 90 days (IST); override with ?from&to=YYYY-MM-DD.
 export async function exportReport(req, res, next) {
   try {

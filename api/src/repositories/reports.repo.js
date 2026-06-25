@@ -47,6 +47,35 @@ export async function overview(ids) {
   };
 }
 
+// Promoter's own dashboard: stock-in-hand (live snapshot), and leads / cash /
+// UPI in hand / points for the chosen period (today | week). "In hand" = period
+// sales by mode minus what's already been handed over in that period.
+export async function promoterSummary(promoterId, period) {
+  const salesP = period === 'today' ? `created_at::date = current_date` : `created_at > now() - interval '7 days'`;
+  const dayP = period === 'today' ? `day = current_date` : `day > current_date - 7`;
+  const [stock, leads, cashSales, upiSales, handed, pts] = await Promise.all([
+    query(
+      `SELECT p.sku, p.name,
+              COALESCE(
+                (SELECT opening + refill - sold FROM inventory WHERE promoter_id=$1 AND product_id=p.id AND day=current_date),
+                (SELECT closing FROM inventory WHERE promoter_id=$1 AND product_id=p.id AND day<current_date ORDER BY day DESC LIMIT 1),
+                0) AS in_hand
+       FROM products p WHERE p.active = true ORDER BY p.sku`, [promoterId]),
+    query(`SELECT count(*)::int v FROM leads WHERE promoter_id=$1 AND ${salesP}`, [promoterId]),
+    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id=$1 AND payment_mode='cash' AND ${salesP}`, [promoterId]),
+    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id=$1 AND payment_mode='upi' AND ${salesP}`, [promoterId]),
+    query(`SELECT coalesce(sum(amount),0) cash, coalesce(sum(upi_amount),0) upi FROM collections WHERE promoter_id=$1 AND ${dayP}`, [promoterId]),
+    query(`SELECT coalesce(sum(points),0) v FROM promoter_points WHERE promoter_id=$1 AND ${salesP}`, [promoterId]),
+  ]);
+  return {
+    stock_by_sku: stock.rows.map((r) => ({ sku: r.sku, name: r.name, in_hand: n(r.in_hand) })),
+    leads: leads.rows[0].v,
+    cash_in_hand: Math.max(0, n(cashSales.rows[0].v) - n(handed.rows[0].cash)),
+    upi_in_hand: Math.max(0, n(upiSales.rows[0].v) - n(handed.rows[0].upi)),
+    points: n(pts.rows[0].v),
+  };
+}
+
 // ---- CSV export row sources (inclusive date range on the IST business day) ----
 export async function exportSales(ids, from, to) {
   const { rows } = await query(

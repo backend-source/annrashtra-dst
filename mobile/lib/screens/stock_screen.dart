@@ -13,6 +13,7 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _requests = [];
+  List<Map<String, dynamic>> _stock = [];
   String? _productId;
   final _qty = TextEditingController();
   bool _loading = true;
@@ -38,8 +39,21 @@ class _StockScreenState extends State<StockScreen> {
         _loading = false;
       });
     }
+    _loadStock();
     _loadRequests();
   }
+
+  Future<void> _loadStock() async {
+    try {
+      final s = await context.read<AppState>().dailyCycle();
+      if (mounted) setState(() => _stock = s);
+    } on ApiException {
+      // offline — leave as-is
+    }
+  }
+
+  int _inHand(Map<String, dynamic> row) =>
+      ((row['opening'] ?? 0) as num).toInt() + ((row['refill'] ?? 0) as num).toInt() - ((row['sold'] ?? 0) as num).toInt();
 
   Future<void> _loadRequests() async {
     try {
@@ -102,6 +116,7 @@ class _StockScreenState extends State<StockScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delivery confirmed — stock updated')));
       _loadRequests();
+      _loadStock();
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
@@ -123,6 +138,39 @@ class _StockScreenState extends State<StockScreen> {
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Current stock in hand', style: TextStyle(fontWeight: FontWeight.w600)),
+                                IconButton(onPressed: _loadStock, icon: const Icon(Icons.refresh)),
+                              ],
+                            ),
+                            if (_stock.isEmpty)
+                              const Text('No stock yet (admin sets your opening stock).', style: TextStyle(color: Colors.black54, fontSize: 12))
+                            else
+                              ..._stock.map((r) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 3),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('${r['sku'] ?? r['name']}'),
+                                        Text('${_inHand(r)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  )),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Request a refill', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue: _productId,
                       decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
@@ -138,12 +186,6 @@ class _StockScreenState extends State<StockScreen> {
                       decoration: const InputDecoration(labelText: 'Quantity', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => _submit(path: '/api/inventory/opening', verb: 'Opening stock'),
-                      icon: const Icon(Icons.inventory),
-                      label: const Text('Record opening stock'),
-                    ),
-                    const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _submit(path: '/api/inventory/refill-requests', verb: 'Refill request'),
                       icon: const Icon(Icons.add_box),

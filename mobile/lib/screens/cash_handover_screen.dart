@@ -24,8 +24,19 @@ class _CashHandoverScreenState extends State<CashHandoverScreen> {
   }
 
   Future<void> _load() async {
+    final s = context.read<AppState>();
+    // Pre-fill the handover with what they currently hold (as per today's sales).
     try {
-      final c = await context.read<AppState>().collections();
+      final d = await s.myDashboard('today');
+      if (d != null && mounted) {
+        if (_cash.text.isEmpty) _cash.text = '${d['cash_in_hand'] ?? ''}';
+        if (_upi.text.isEmpty) _upi.text = '${d['upi_in_hand'] ?? ''}';
+      }
+    } on ApiException {
+      // offline — leave the fields blank
+    }
+    try {
+      final c = await s.collections();
       if (mounted) setState(() { _items = c; _loading = false; });
     } on ApiException {
       if (mounted) setState(() => _loading = false);

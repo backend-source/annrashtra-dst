@@ -171,12 +171,15 @@ assert('override requires a reason (400)', ovrNoReason.status === 400, `status=$
 const ovr = await post(`/api/attendance/${ov.body.id}/override`, { reason: 'rain shifted canopy' }, sup.token);
 assert('supervisor override sets override_by + reason', ovr.status === 200 && ovr.body.override_by === sup.user.id && ovr.body.override_reason === 'rain shifted canopy', `status=${ovr.status}`);
 
-// ---- inventory: opening, daily cycle, refill request + approve/reject ----
+// ---- inventory: admin sets opening, daily cycle, refill request + approve/reject ----
+const admin = await login(ADMIN);
+const openForbidden = await post('/api/inventory/opening', { product_id: product2.id, qty: 50, promoter_id: pid }, token);
+assert('promoter cannot set opening (403)', openForbidden.status === 403, `status=${openForbidden.status}`);
 const openUuid = randomUUID();
-const open1 = await post('/api/inventory/opening', { client_uuid: openUuid, product_id: product2.id, qty: 50 }, token);
-assert('opening 201 sets opening=50', open1.status === 201 && open1.body.opening === 50, `status=${open1.status} opening=${open1.body.opening}`);
-const open2 = await post('/api/inventory/opening', { client_uuid: openUuid, product_id: product2.id, qty: 50 }, token);
-assert('opening replay idempotent (200, still 50)', open2.status === 200 && open2.body.opening === 50, `status=${open2.status} opening=${open2.body.opening}`);
+const open1 = await post('/api/inventory/opening', { client_uuid: openUuid, product_id: product2.id, qty: 50, promoter_id: pid }, admin.token);
+assert('admin sets opening=50', open1.status === 201 && open1.body.opening === 50, `status=${open1.status} opening=${open1.body.opening}`);
+const open2 = await post('/api/inventory/opening', { client_uuid: openUuid, product_id: product2.id, qty: 50, promoter_id: pid }, admin.token);
+assert('opening replay idempotent (still 50)', open2.body.opening === 50, `opening=${open2.body.opening}`);
 
 const cyc = await get('/api/inventory', token);
 const row1 = cyc.body.find((r) => r.product_id === product2.id);
@@ -189,7 +192,7 @@ assert('rollover: today opening = yesterday closing (30)', !!kf800 && kf800.open
 assert('rollover: closing = opening - sold (28)', !!kf800 && kf800.closing === 28, `closing=${kf800?.closing}`);
 
 // promoter requests refill; ONLY admin approves; promoter confirms actual delivery
-const admin = await login(ADMIN);
+// (admin logged in earlier, before the inventory section)
 const rrUuid = randomUUID();
 const rr = await post('/api/inventory/refill-requests', { client_uuid: rrUuid, product_id: product2.id, qty: 20 }, token);
 assert('refill request 201 pending', rr.status === 201 && rr.body.status === 'pending', `status=${rr.status}`);

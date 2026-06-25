@@ -136,6 +136,22 @@ class AppState extends ChangeNotifier {
     await api.post('/api/collections/$id/dispute', {'note': note});
   }
 
+  // The promoter's dashboard for a period ('today'|'week'): stock in hand, leads,
+  // cash/UPI in hand, points. Cached per period for offline.
+  Future<Map<String, dynamic>?> myDashboard(String period) async {
+    try {
+      final res = await api.get('/api/reports/me?period=$period') as Map<String, dynamic>;
+      store.cachePut('dash_$period', res);
+      return res;
+    } on ApiException {
+      final cached = store.cacheGet('dash_$period');
+      return cached is Map ? Map<String, dynamic>.from(cached) : null;
+    }
+  }
+
+  // Current stock cycle (opening/refill/sold/closing per SKU) for today.
+  Future<List<Map<String, dynamic>>> dailyCycle() => _listCached('/api/inventory', 'daily_cycle');
+
   // The promoter's own overview (revenue, leads, points...). Cached for offline.
   Future<Map<String, dynamic>?> overview() async {
     try {

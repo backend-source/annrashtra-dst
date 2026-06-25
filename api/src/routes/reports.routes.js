@@ -9,6 +9,9 @@ router.use(authenticate);
 // Role-scoped overview: promoter (self), supervisor (team), admin (all).
 router.get('/overview', reports.overview);
 
+// Promoter's own dashboard (stock in hand, leads, cash/UPI in hand, points).
+router.get('/me', reports.me);
+
 // CSV export: type = sales | leads | attendance | inventory.
 router.get('/export/:type', reports.exportReport);
 
