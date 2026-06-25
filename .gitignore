@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# dashboard build-time API URL (public, not a secret) — must be committed so the
+# deployed build always targets the right API regardless of host build vars
+!dashboard/.env.production
 # mobile secrets / signing
 google-services.json
 GoogleService-Info.plist
