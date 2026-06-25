@@ -1,0 +1,29 @@
+# Render Blueprint — Annrashtra DST API
+# In Render: New + → "Blueprint" → pick this repo. Render reads this file and
+# creates the service. You then fill the two secret values (DATABASE_URL,
+# CORS_ORIGIN) in the dashboard — they are intentionally NOT stored in git.
+#
+# Pilot = just this web service on the free plan (no MSG91 yet, so no outbox
+# worker needed). When MSG91/WhatsApp goes live, add a `type: worker` service
+# running `node scripts/outbox-worker.js` (needs a paid plan).
+services:
+  - type: web
+    name: annrashtra-dst-api
+    runtime: node
+    region: singapore           # same region as the Neon database
+    plan: free
+    rootDir: api
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OTP_DISABLED
+        value: "true"           # temporary: login by mobile (until MSG91/DLT is live)
+      - key: JWT_SECRET
+        generateValue: true     # Render generates a strong secret automatically
+      - key: DATABASE_URL
+        sync: false             # paste the Neon connection string in the dashboard
+      - key: CORS_ORIGIN
+        sync: false             # set to the dashboard URL after Cloudflare deploy
