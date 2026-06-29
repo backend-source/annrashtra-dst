@@ -54,6 +54,21 @@ export async function createSale(input) {
     const istDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD in IST
     const invoiceNo = `INV-${istDate}-${input.client_uuid.slice(0, 8)}`;
 
+    // #2 stock backstop. The promoter app hard-blocks selling below stock, so a
+    // well-behaved client never reaches here oversold. A stale/offline client
+    // still might — we don't reject (the customer paid), we FLAG it. Compare each
+    // product's requested qty against what's currently available today
+    // (opening + refill - sold). Opening-not-set => available 0 => flagged.
+    let oversold = false;
+    const qtyByProduct = new Map();
+    for (const it of input.items) qtyByProduct.set(it.product_id, (qtyByProduct.get(it.product_id) || 0) + it.qty);
+    for (const [productId, qty] of qtyByProduct) {
+      await inventoryRepo.ensureTodayRow(client, { promoter_id: input.promoter_id, product_id: productId });
+      const row = await inventoryRepo.getTodayRow(client, { promoterId: input.promoter_id, productId });
+      const available = row ? Number(row.opening) + Number(row.refill) - Number(row.sold) : 0;
+      if (qty > available) { oversold = true; break; }
+    }
+
     // Link the customer: if a mobile is given, upsert the customer master (by mobile,
     // with name) and use that id — so name + mobile appear on the sale and in reports.
     let customerId = input.customer_id ?? null;
@@ -74,6 +89,7 @@ export async function createSale(input) {
       in_radius: input.in_radius,
       override_by: input.override_by,
       override_reason: input.override_reason,
+      oversold,
       client_uuid: input.client_uuid,
     });
 

@@ -14,6 +14,11 @@ class QueueScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sync queue'),
         actions: [
+          if (s.failedCount > 0)
+            TextButton(
+              onPressed: () => _confirmClearAll(context, s),
+              child: const Text('Clear failed'),
+            ),
           IconButton(
             onPressed: s.online ? () => s.flush() : null,
             icon: const Icon(Icons.sync),
@@ -38,12 +43,61 @@ class QueueScreen extends StatelessWidget {
                   subtitle: Text(
                     isError ? 'Failed: ${op.lastError}' : 'Waiting to sync · ${op.path}',
                   ),
+                  // Failed items can be retried or dismissed. Pending items just wait
+                  // (they auto-retry) — no dismiss, so real unsynced data can't be lost.
                   trailing: isError
-                      ? TextButton(onPressed: () => s.retry(op), child: const Text('Retry'))
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(onPressed: () => s.retry(op), child: const Text('Retry')),
+                            IconButton(
+                              tooltip: 'Dismiss',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _confirmDismiss(context, s, op),
+                            ),
+                          ],
+                        )
                       : null,
                 );
               },
             ),
     );
+  }
+
+  Future<void> _confirmDismiss(BuildContext context, AppState s, PendingOp op) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Dismiss this item?'),
+        content: Text(
+          'This will remove the failed item "${op.label}" from the queue.\n\n'
+          'It already failed on the server — it was either saved earlier or rejected as invalid, '
+          'so nothing accepted is lost.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Dismiss')),
+        ],
+      ),
+    );
+    if (ok == true) await s.dismissOp(op);
+  }
+
+  Future<void> _confirmClearAll(BuildContext context, AppState s) async {
+    final n = s.failedCount;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Clear $n failed item(s)?'),
+        content: const Text(
+          'This removes every failed item from the queue. Items still waiting to sync are kept.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Clear')),
+        ],
+      ),
+    );
+    if (ok == true) await s.clearFailed();
   }
 }

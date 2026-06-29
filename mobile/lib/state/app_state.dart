@@ -33,6 +33,8 @@ class AppState extends ChangeNotifier {
   List<PendingOp> get queue => store.queue;
   int get pendingCount =>
       store.queue.where((o) => o.status == OpStatus.pending).length;
+  int get failedCount =>
+      store.queue.where((o) => o.status == OpStatus.error).length;
 
   void _watchConnectivity() {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
@@ -86,6 +88,20 @@ class AppState extends ChangeNotifier {
     await sync.retry(op);
     notifyListeners();
     await flush();
+  }
+
+  // Discard a single permanently-failed op. Safe because of client_uuid: a 4xx
+  // means the server already has it (duplicate) or it was invalid — nothing the
+  // server accepted is lost.
+  Future<void> dismissOp(PendingOp op) async {
+    await store.removeOp(op.clientUuid);
+    notifyListeners();
+  }
+
+  // Discard all failed ops at once.
+  Future<void> clearFailed() async {
+    await store.clearFailed();
+    notifyListeners();
   }
 
   /// Products/locations: fetch when online and cache; fall back to cache offline.

@@ -14,11 +14,12 @@ function toCsv(headers, rows) {
 
 // Per-type CSV spec: which repo query, the header row, and the columns to pull.
 const EXPORTS = {
-  sales: { fn: repo.exportSales, headers: ['Promoter', 'Code', 'Invoice', 'Date', 'Customer', 'Mobile', 'Payment', 'Total', 'Items'], keys: ['promoter', 'code', 'invoice_no', 'dt', 'customer', 'customer_mobile', 'payment_mode', 'total', 'items'] },
+  sales: { fn: repo.exportSales, headers: ['Promoter', 'Code', 'Invoice', 'Date', 'Customer', 'Mobile', 'Payment', 'Total', 'Flag', 'Items'], keys: ['promoter', 'code', 'invoice_no', 'dt', 'customer', 'customer_mobile', 'payment_mode', 'total', 'oversold', 'items'] },
   leads: { fn: repo.exportLeads, headers: ['Promoter', 'Code', 'Name', 'Mobile', 'Concern', 'Interest', 'Source', 'Verify', 'Status', 'Date'], keys: ['promoter', 'code', 'name', 'mobile', 'health_concern', 'product_interest', 'source', 'verify_status', 'status', 'dt'] },
   attendance: { fn: repo.exportAttendance, headers: ['Promoter', 'Code', 'Location', 'Shift', 'Check-in', 'Check-out', 'In radius', 'Verified by', 'Lat', 'Lng', 'Map'], keys: ['promoter', 'code', 'location', 'shift', 'checkin', 'checkout', 'in_radius', 'verified_by', 'gps_lat', 'gps_lng', 'map_url'] },
   inventory: { fn: repo.exportInventory, headers: ['Promoter', 'Code', 'SKU', 'Opening', 'Refill', 'Sold', 'Closing', 'Day'], keys: ['promoter', 'code', 'sku', 'opening', 'refill', 'sold', 'closing', 'day'] },
   collections: { fn: repo.exportCollections, headers: ['Promoter', 'Code', 'Day', 'Expected cash', 'Cash handed', 'Expected UPI', 'UPI handed', 'Status', 'Verified by', 'Verified at'], keys: ['promoter', 'code', 'day', 'expected_cash', 'handed_cash', 'expected_upi', 'handed_upi', 'status', 'confirmed_by', 'confirmed_at'] },
+  ledger: { fn: repo.cashLedger, headers: ['Promoter', 'Code', 'Day', 'Open cash', 'Cash collected', 'Cash handed', 'Cash balance', 'Open UPI', 'UPI collected', 'UPI handed', 'UPI balance'], keys: ['promoter', 'code', 'day', 'opening_cash', 'collected_cash', 'handed_cash', 'balance_cash', 'opening_upi', 'collected_upi', 'handed_upi', 'balance_upi'] },
 };
 
 // Promoter ids visible to this user: promoter -> self; supervisor -> their team;
@@ -55,6 +56,13 @@ export async function testAlert() {
 export function me(user, period) {
   const p = period === 'week' ? 'week' : 'today';
   return repo.promoterSummary(user.id, p);
+}
+
+// Cash & UPI running-balance ledger (#4), scoped to the user's role. JSON for the
+// dashboard Collections view; the same data is downloadable via export/ledger.
+export async function ledger(user, from, to) {
+  const ids = await scopeIds(user);
+  return { rows: await repo.cashLedger(ids, from, to) };
 }
 
 // Build a CSV for a report type, scoped to the user's role.

@@ -42,6 +42,14 @@ class LocalStore {
   Future<void> putOp(PendingOp op) => _queue.put(op.clientUuid, op.encode());
   Future<void> removeOp(String clientUuid) => _queue.delete(clientUuid);
 
+  // Discard every permanently-failed op (status == error). Pending ops — which
+  // will still sync — are left untouched.
+  Future<void> clearFailed() async {
+    for (final op in queue.where((o) => o.status == OpStatus.error)) {
+      await _queue.delete(op.clientUuid);
+    }
+  }
+
   // ---- read cache ----
   void cachePut(String key, dynamic value) => _cache.put(key, jsonEncode(value));
   dynamic cacheGet(String key) {

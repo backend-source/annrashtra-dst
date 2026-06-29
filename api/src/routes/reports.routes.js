@@ -12,6 +12,9 @@ router.get('/overview', reports.overview);
 // Promoter's own dashboard (stock in hand, leads, cash/UPI in hand, points).
 router.get('/me', reports.me);
 
+// Cash & UPI running-balance ledger (role-scoped) — powers the dashboard balance view.
+router.get('/ledger', reports.ledger);
+
 // Admin: send a test alert email (to verify SMTP config).
 router.post('/test-email', requireRole('admin'), reports.testEmail);
 

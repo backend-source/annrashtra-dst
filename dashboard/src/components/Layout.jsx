@@ -25,8 +25,8 @@ export default function Layout({ user, onLogout }) {
 
   return (
     <div className="app">
-      <header>
-        <strong>Annrashtra DST</strong>
+      <aside className="side">
+        <div className="brand"><span className="mark">A</span> Annrashtra DST</div>
         <nav>
           {TABS.map((t) => (
             <button key={t.id} className={t.id === tab ? 'active' : ''} onClick={() => setTab(t.id)}>
@@ -34,13 +34,17 @@ export default function Layout({ user, onLogout }) {
             </button>
           ))}
         </nav>
-        <span className="spacer" />
-        <span className="muted">{user.name || user.role} · {user.role}</span>
-        <button className="link" onClick={onLogout}>Log out</button>
-      </header>
-      <main>
-        <Active user={user} />
-      </main>
+      </aside>
+      <div className="content">
+        <header className="topbar">
+          <span className="spacer" />
+          <span className="muted">{user.name || user.role} · {user.role}</span>
+          <button className="link" onClick={onLogout}>Log out</button>
+        </header>
+        <main>
+          <Active user={user} />
+        </main>
+      </div>
     </div>
   );
 }

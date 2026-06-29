@@ -30,8 +30,13 @@ class SyncService {
           await store.removeOp(op.clientUuid); // 2xx or idempotent replay -> done
           synced++;
         } on ApiException catch (e) {
-          if (e.isNetwork) break; // offline: stop, keep the whole queue
-          // Rejected by the server (4xx/5xx): mark so it doesn't block the rest.
+          // Transient — offline, server waking (5xx), timeout, or rate-limited.
+          // Keep the whole queue PENDING and stop; the next flush auto-retries.
+          // (This is what stops cold-start timeouts from sticking as "failed".)
+          if (e.isNetwork || e.statusCode >= 500 || e.statusCode == 408 || e.statusCode == 429) break;
+          // Permanent (4xx) — the server rejected it and a retry won't help.
+          // Mark failed so it doesn't block the rest; the user can dismiss it
+          // (safe: client_uuid means it's either already saved or invalid).
           op.status = OpStatus.error;
           op.lastError = e.message;
           op.attempts += 1;

@@ -15,17 +15,18 @@ export async function findSaleWithItems(client, { saleId, clientUuid }) {
 }
 
 // Insert the sale; DO NOTHING on a replayed client_uuid so we can detect the replay.
+// `oversold` flags a sale that pushed stock negative (server backstop for #2).
 export async function insertSale(client, s) {
   const { rows } = await client.query(
     `INSERT INTO sales
        (promoter_id, location_id, customer_id, invoice_no, payment_mode, total,
-        whatsapp_status, in_radius, override_by, override_reason, client_uuid)
-     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10)
+        whatsapp_status, in_radius, override_by, override_reason, oversold, client_uuid)
+     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10,$11)
      ON CONFLICT (client_uuid) WHERE client_uuid IS NOT NULL DO NOTHING
      RETURNING *`,
     [s.promoter_id, s.location_id ?? null, s.customer_id ?? null, s.invoice_no,
      s.payment_mode, s.total, s.in_radius ?? null, s.override_by ?? null,
-     s.override_reason ?? null, s.client_uuid],
+     s.override_reason ?? null, s.oversold ?? false, s.client_uuid],
   );
   return rows[0] || null; // null => replay (already existed)
 }

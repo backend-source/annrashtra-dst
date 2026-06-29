@@ -1,7 +1,7 @@
 import { query } from '../config/db.js';
 
-// Promoter hands over the day's cash + UPI. Idempotent on client_uuid; one per
-// promoter/day (the unique on (promoter_id, day) surfaces as 23505 on a repeat).
+// Promoter hands over cash + UPI. Idempotent on client_uuid; multiple handovers
+// per day are allowed (#3) — the one-per-day unique was dropped in schema_v9.
 export async function insert(c) {
   const { rows } = await query(
     `INSERT INTO collections (promoter_id, day, amount, upi_amount, note, client_uuid)

@@ -8,6 +8,7 @@ import 'services/photo_uploader.dart';
 import 'state/app_state.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,10 +30,7 @@ class PromoterApp extends StatelessWidget {
     return MaterialApp(
       title: 'Annrashtra Promoter',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF2F6F4F),
-        useMaterial3: true,
-      ),
+      theme: buildBrandTheme(),
       home: Consumer<AppState>(
         builder: (_, s, _) => s.isLoggedIn ? const HomeScreen() : const LoginScreen(),
       ),

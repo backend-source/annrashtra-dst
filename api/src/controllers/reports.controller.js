@@ -29,6 +29,17 @@ export async function me(req, res, next) {
   }
 }
 
+// Cash & UPI running-balance ledger (?from&to=YYYY-MM-DD; defaults last 30 days).
+export async function ledger(req, res, next) {
+  try {
+    const to = req.query.to || istToday();
+    const from = req.query.from || istDaysAgo(30);
+    res.json(await service.ledger(req.user, from, to));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // CSV download. Defaults to the last 90 days (IST); override with ?from&to=YYYY-MM-DD.
 export async function exportReport(req, res, next) {
   try {

@@ -82,6 +82,7 @@ export async function exportSales(ids, from, to) {
     `SELECT s.invoice_no, to_char(s.created_at,'YYYY-MM-DD HH24:MI') AS dt, u.name AS promoter, u.emp_code AS code,
             c.name AS customer, c.mobile AS customer_mobile,
             s.payment_mode, s.total,
+            CASE WHEN s.oversold THEN 'OVERSOLD' ELSE '' END AS oversold,
             (SELECT string_agg(p.sku || ' x' || si.qty, '; ')
              FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = s.id) AS items
      FROM sales s JOIN users u ON u.id = s.promoter_id
@@ -132,6 +133,51 @@ export async function exportCollections(ids, from, to) {
      WHERE c.promoter_id = ANY($1) AND c.day BETWEEN $2::date AND $3::date
      ORDER BY c.day DESC, u.name`, [ids, from, to]);
   return rows;
+}
+
+// ---- cash ledger (#4) ----
+// Running cash & UPI balance per promoter per day. Opening = prior day's closing
+// (carry-forward of whatever wasn't handed over); first opening = 0. The window
+// runs over the promoter's FULL history so the balance carried into [from,to] is
+// correct; the date range only limits which rows are returned.
+//   opening + collected - handed = balance (closing) -> next day's opening
+export async function cashLedger(ids, from, to) {
+  const { rows } = await query(
+    `WITH days AS (
+       SELECT promoter_id, day FROM (
+         SELECT promoter_id, created_at::date AS day FROM sales WHERE promoter_id = ANY($1)
+         UNION
+         SELECT promoter_id, day FROM collections WHERE promoter_id = ANY($1)
+       ) u GROUP BY promoter_id, day
+     ),
+     daily AS (
+       SELECT d.promoter_id, d.day,
+         COALESCE((SELECT sum(total) FROM sales s WHERE s.promoter_id=d.promoter_id AND s.payment_mode='cash' AND s.created_at::date=d.day),0) AS collected_cash,
+         COALESCE((SELECT sum(amount) FROM collections c WHERE c.promoter_id=d.promoter_id AND c.day=d.day),0) AS handed_cash,
+         COALESCE((SELECT sum(total) FROM sales s WHERE s.promoter_id=d.promoter_id AND s.payment_mode='upi' AND s.created_at::date=d.day),0) AS collected_upi,
+         COALESCE((SELECT sum(upi_amount) FROM collections c WHERE c.promoter_id=d.promoter_id AND c.day=d.day),0) AS handed_upi
+       FROM days d
+     ),
+     ledger AS (
+       SELECT promoter_id, day, collected_cash, handed_cash, collected_upi, handed_upi,
+         sum(collected_cash - handed_cash) OVER w AS balance_cash,
+         sum(collected_upi - handed_upi) OVER w AS balance_upi
+       FROM daily
+       WINDOW w AS (PARTITION BY promoter_id ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+     )
+     SELECT u.name AS promoter, u.emp_code AS code, to_char(l.day,'YYYY-MM-DD') AS day,
+            (l.balance_cash - (l.collected_cash - l.handed_cash)) AS opening_cash,
+            l.collected_cash, l.handed_cash, l.balance_cash,
+            (l.balance_upi - (l.collected_upi - l.handed_upi)) AS opening_upi,
+            l.collected_upi, l.handed_upi, l.balance_upi
+     FROM ledger l JOIN users u ON u.id = l.promoter_id
+     WHERE l.day BETWEEN $2::date AND $3::date
+     ORDER BY u.name, l.day DESC`, [ids, from, to]);
+  return rows.map((r) => ({
+    promoter: r.promoter, code: r.code, day: r.day,
+    opening_cash: n(r.opening_cash), collected_cash: n(r.collected_cash), handed_cash: n(r.handed_cash), balance_cash: n(r.balance_cash),
+    opening_upi: n(r.opening_upi), collected_upi: n(r.collected_upi), handed_upi: n(r.handed_upi), balance_upi: n(r.balance_upi),
+  }));
 }
 
 export async function exportInventory(ids, from, to) {

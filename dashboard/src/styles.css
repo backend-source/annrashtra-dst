@@ -1,6 +1,9 @@
 :root {
-  --bg: #f5f6f8; --card: #fff; --ink: #1c2330; --muted: #6b7480;
-  --line: #e3e6ea; --brand: #2f6f4f; --brand-ink: #fff; --danger: #b3361f;
+  --bg: #faf7f3; --card: #fff; --ink: #241c1d; --muted: #7a7470;
+  --line: #ece5dd; --brand: #8C1D24; --brand-ink: #fff; --danger: #b3361f;
+  /* semantic brand accents (from the logo): green = money, gold = points/rewards */
+  --money: #456B17; --money-bg: #EAF2DA; --gold: #9A6810; --gold-bg: #FAEED5;
+  --accent: #185FA5; --accent-bg: #E6F1FB; --brand-bg: #F7E7E8;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink);
@@ -19,28 +22,51 @@ button.link { border: none; background: none; color: var(--brand); padding: 4px;
 .login { min-height: 100vh; display: grid; place-items: center; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
   padding: 28px; width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,.05); }
-.card h1 { margin: 0 0 2px; font-size: 20px; }
+.card h1 { margin: 0 0 2px; font-size: 20px; color: var(--brand); }
 .card form { display: grid; gap: 8px; margin-top: 16px; }
 .card label { font-size: 12px; color: var(--muted); }
 .card input { padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
 .card button:not(.link) { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); padding: 9px; }
 
-/* app shell */
-header { display: flex; align-items: center; gap: 14px; background: #fff;
+/* app shell — maroon sidebar */
+.app { display: flex; min-height: 100vh; }
+.side { width: 200px; flex-shrink: 0; background: var(--brand); color: #fff;
+  padding: 14px 10px; display: flex; flex-direction: column; }
+.side .brand { display: flex; align-items: center; gap: 8px; font-weight: 600;
+  font-size: 15px; padding: 6px 8px 18px; }
+.side .brand .mark { width: 26px; height: 26px; border-radius: 7px; background: #fff;
+  color: var(--brand); display: grid; place-items: center; font-weight: 700; }
+.side nav { display: flex; flex-direction: column; gap: 2px; }
+.side nav button { text-align: left; background: transparent; border: none; color: #f0d4c6;
+  padding: 9px 10px; border-radius: 8px; font-size: 13px; }
+.side nav button:hover:not(.active) { background: rgba(255,255,255,.12); color: #fff; }
+.side nav button.active { background: #fff; color: var(--brand); font-weight: 600; }
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 12px; background: #fff;
   border-bottom: 1px solid var(--line); padding: 10px 18px; }
-header nav { display: flex; gap: 6px; }
-header nav button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
 .spacer { flex: 1; }
-main { padding: 22px; max-width: 1000px; margin: 0 auto; }
+main { padding: 22px; max-width: 1100px; margin: 0 auto; width: 100%; }
 section h2 { margin: 0 0 4px; }
+
+/* metric cards (colored, semantic) */
+.kpi { border-radius: 12px; padding: 12px 14px; }
+.kpi .kpi-label { font-size: 12px; }
+.kpi .kpi-value { font-size: 22px; font-weight: 600; margin-top: 2px; }
+.kpi .kpi-sub { font-size: 11px; opacity: .85; }
+.kpi.brand { background: var(--brand-bg); color: var(--brand); }
+.kpi.money { background: var(--money-bg); color: var(--money); }
+.kpi.gold { background: var(--gold-bg); color: var(--gold); }
+.kpi.accent { background: var(--accent-bg); color: var(--accent); }
+.kpi.plain { background: var(--card); border: 1px solid var(--line); color: var(--ink); }
 
 /* tables */
 table { width: 100%; border-collapse: collapse; margin-top: 14px; background: #fff;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
-th { background: #fafbfc; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+th { background: #faf6f1; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 tr:last-child td { border-bottom: none; }
 .actions { display: flex; gap: 6px; }
 .price { width: 90px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; }
-.tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef0f2; color: var(--muted); }
-.tag.ok { background: #e3f1e8; color: var(--brand); }
+.tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #efe9e2; color: var(--muted); }
+.tag.ok { background: var(--money-bg); color: var(--money); }
+.tag.warn { background: var(--gold-bg); color: var(--gold); }

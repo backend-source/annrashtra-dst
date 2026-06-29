@@ -20,17 +20,13 @@ function amounts(input) {
   return { amount, upi_amount };
 }
 
-// Promoter records a cash + UPI handover for today.
+// Promoter records a cash + UPI handover. Several are allowed per day (#3) — the
+// only uniqueness left is client_uuid (offline replay safety), handled in the repo.
 export async function create(input) {
   if (!input.promoter_id) throw new ApiError(400, 'promoter_id is required');
   const { amount, upi_amount } = amounts(input);
   if (amount + upi_amount <= 0) throw new ApiError(400, 'enter a cash or UPI amount');
-  try {
-    return await repo.insert({ promoter_id: input.promoter_id, amount, upi_amount, note: input.note, client_uuid: input.client_uuid });
-  } catch (err) {
-    if (err.code === '23505') throw new ApiError(409, 'Handover already submitted for today');
-    throw err;
-  }
+  return repo.insert({ promoter_id: input.promoter_id, amount, upi_amount, note: input.note, client_uuid: input.client_uuid });
 }
 
 export async function list(user, { status }) {

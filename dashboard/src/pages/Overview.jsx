@@ -38,12 +38,12 @@ function ExportPanel() {
 const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const inrK = (n) => (n >= 1000 ? '₹' + Math.round(n / 1000) + 'k' : '₹' + Math.round(n));
 
-function Kpi({ label, value, sub }) {
+function Kpi({ label, value, sub, tone = 'plain' }) {
   return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
-      <div className="muted" style={{ fontSize: 12 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 500, marginTop: 2 }}>{value}</div>
-      {sub && <div className="muted" style={{ fontSize: 11 }}>{sub}</div>}
+    <div className={`kpi ${tone}`}>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {sub && <div className="kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -69,13 +69,13 @@ export default function Overview() {
       <p className="muted">{scopeLabel}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
-        <Kpi label="Revenue · this week" value={inr(k.revenue_week)} sub={`${inr(k.revenue_today)} today`} />
-        <Kpi label="Units sold · week" value={k.units_week} />
-        <Kpi label="Leads" value={k.leads_total} sub={`${k.leads_verified} verified · ${k.leads_converted} converted`} />
-        <Kpi label="Conversion" value={`${k.conversion_rate}%`} />
-        <Kpi label="Check-ins today" value={k.checkins_today} />
-        <Kpi label="In-radius rate" value={`${k.in_radius_rate}%`} />
-        <Kpi label="Points" value={k.points} />
+        <Kpi label="Revenue · this week" value={inr(k.revenue_week)} sub={`${inr(k.revenue_today)} today`} tone="money" />
+        <Kpi label="Units sold · week" value={k.units_week} tone="plain" />
+        <Kpi label="Leads" value={k.leads_total} sub={`${k.leads_verified} verified · ${k.leads_converted} converted`} tone="accent" />
+        <Kpi label="Conversion" value={`${k.conversion_rate}%`} tone="plain" />
+        <Kpi label="Check-ins today" value={k.checkins_today} tone="brand" />
+        <Kpi label="In-radius rate" value={`${k.in_radius_rate}%`} tone="plain" />
+        <Kpi label="Points" value={k.points} tone="gold" />
       </div>
 
       <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', marginTop: 16 }}>
