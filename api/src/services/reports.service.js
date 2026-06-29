@@ -52,9 +52,9 @@ export async function testAlert() {
   return { configured: mailConfigured(), sent };
 }
 
-// Promoter's own dashboard (today | week). Promoter-only — uses their own id.
+// Promoter's own dashboard (today | month). Promoter-only — uses their own id.
 export function me(user, period) {
-  const p = period === 'week' ? 'week' : 'today';
+  const p = period === 'month' ? 'month' : period === 'week' ? 'week' : 'today';
   return repo.promoterSummary(user.id, p);
 }
 
