@@ -4,6 +4,7 @@ import * as productsRepo from '../repositories/products.repo.js';
 import * as salesRepo from '../repositories/sales.repo.js';
 import * as inventoryRepo from '../repositories/inventory.repo.js';
 import * as outboxRepo from '../repositories/outbox.repo.js';
+import * as pointsRepo from '../repositories/points.repo.js';
 import { isValidMobile } from '../utils/validators.js';
 
 const VALID_PAYMENT = new Set(['cash', 'upi']);
@@ -48,7 +49,7 @@ export async function createSale(input) {
       if (!p.active) throw new ApiError(400, `Product not active: ${p.name}`);
       const unitPrice = Number(p.price);
       total += unitPrice * it.qty;
-      return { ...it, unit_price: unitPrice };
+      return { ...it, unit_price: unitPrice, points: Number(p.points) || 0 };
     });
 
     const istDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD in IST
@@ -104,6 +105,15 @@ export async function createSale(input) {
       await salesRepo.insertStockDeduction(client, { promoter_id: input.promoter_id, product_id: it.product_id, qty: it.qty, sale_id: sale.id });
       await inventoryRepo.ensureTodayRow(client, { promoter_id: input.promoter_id, product_id: it.product_id });
       await salesRepo.addInventorySold(client, { promoter_id: input.promoter_id, product_id: it.product_id, qty: it.qty });
+    }
+
+    // Reward points for packets sold (#10): per-product points x qty, credited
+    // once per sale. Idempotent on (sale_id, reason).
+    const salePoints = priced.reduce((sum, it) => sum + it.points * it.qty, 0);
+    if (salePoints > 0) {
+      await pointsRepo.awardForSale(client, {
+        promoter_id: input.promoter_id, points: salePoints, reason: 'sale_packet', sale_id: sale.id,
+      });
     }
 
     // Queue the WhatsApp invoice (sent later by the outbox worker, phase 3).

@@ -16,6 +16,8 @@ class _CashHandoverScreenState extends State<CashHandoverScreen> {
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
   String? _actingId;
+  double? _maxCash; // current cash in hand — can't hand over more (#8)
+  double? _maxUpi;
 
   @override
   void initState() {
@@ -29,6 +31,8 @@ class _CashHandoverScreenState extends State<CashHandoverScreen> {
     try {
       final d = await s.myDashboard('today');
       if (d != null && mounted) {
+        _maxCash = (num.tryParse('${d['cash_in_hand']}') ?? 0).toDouble();
+        _maxUpi = (num.tryParse('${d['upi_in_hand']}') ?? 0).toDouble();
         if (_cash.text.isEmpty) _cash.text = '${d['cash_in_hand'] ?? ''}';
         if (_upi.text.isEmpty) _upi.text = '${d['upi_in_hand'] ?? ''}';
       }
@@ -48,6 +52,15 @@ class _CashHandoverScreenState extends State<CashHandoverScreen> {
     final upi = double.tryParse(_upi.text.trim()) ?? 0;
     if (cash < 0 || upi < 0 || (cash + upi) <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a cash or UPI amount')));
+      return;
+    }
+    // Can't hand over more than is in hand (#8) — checked per type.
+    if (_maxCash != null && cash > _maxCash! + 0.009) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cash in hand is only ₹${_maxCash!.toStringAsFixed(0)} — can\'t hand over more')));
+      return;
+    }
+    if (_maxUpi != null && upi > _maxUpi! + 0.009) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('UPI in hand is only ₹${_maxUpi!.toStringAsFixed(0)} — can\'t hand over more')));
       return;
     }
     await context.read<AppState>().queueWrite(

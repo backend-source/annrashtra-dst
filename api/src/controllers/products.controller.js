@@ -8,6 +8,14 @@ export async function list(_req, res, next) {
   }
 }
 
+export async function create(req, res, next) {
+  try {
+    res.status(201).json(await service.createProduct(req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function update(req, res, next) {
   try {
     res.json(await service.updateProduct(req.params.id, req.body));

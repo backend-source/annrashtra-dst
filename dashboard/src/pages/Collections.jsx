@@ -58,28 +58,29 @@ export default function Collections() {
       {data && data.length > 0 && (
         <table>
           <thead>
-            <tr><th>Day</th><th>Promoter</th><th>Expected (cash / UPI)</th><th>Handed (cash / UPI)</th><th>Status</th><th>Action</th></tr>
+            <tr><th>Day</th><th>Promoter</th><th>Exp. cash</th><th>Cash handed</th><th>Exp. UPI</th><th>UPI handed</th><th>Status</th><th>Action</th></tr>
           </thead>
           <tbody>
             {data.map((c) => (
               <tr key={c.id}>
                 <td>{c.day}</td>
                 <td>{c.promoter_name}</td>
-                <td>{inr(c.expected_cash)} / {inr(c.expected_upi)}</td>
+                <td>{inr(c.expected_cash)}</td>
                 <td>
                   {edit?.id === c.id ? (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input style={{ width: 90 }} type="number" min="0" value={edit.amount}
-                        onChange={(e) => setEdit({ ...edit, amount: e.target.value })} placeholder="Cash" />
-                      <input style={{ width: 90 }} type="number" min="0" value={edit.upi_amount}
-                        onChange={(e) => setEdit({ ...edit, upi_amount: e.target.value })} placeholder="UPI" />
-                    </div>
+                    <input style={{ width: 90 }} type="number" min="0" value={edit.amount}
+                      onChange={(e) => setEdit({ ...edit, amount: e.target.value })} placeholder="Cash" />
                   ) : (
-                    <span>
-                      <span style={mismatch(c.amount, c.expected_cash) ? { color: 'var(--danger)' } : undefined}>{inr(c.amount)}</span>
-                      {' / '}
-                      <span style={mismatch(c.upi_amount, c.expected_upi) ? { color: 'var(--danger)' } : undefined}>{inr(c.upi_amount)}</span>
-                    </span>
+                    <span style={mismatch(c.amount, c.expected_cash) ? { color: 'var(--danger)' } : undefined}>{inr(c.amount)}</span>
+                  )}
+                </td>
+                <td>{inr(c.expected_upi)}</td>
+                <td>
+                  {edit?.id === c.id ? (
+                    <input style={{ width: 90 }} type="number" min="0" value={edit.upi_amount}
+                      onChange={(e) => setEdit({ ...edit, upi_amount: e.target.value })} placeholder="UPI" />
+                  ) : (
+                    <span style={mismatch(c.upi_amount, c.expected_upi) ? { color: 'var(--danger)' } : undefined}>{inr(c.upi_amount)}</span>
                   )}
                 </td>
                 <td>

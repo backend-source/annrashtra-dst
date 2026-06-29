@@ -191,7 +191,7 @@ class _MyStatsState extends State<_MyStats> {
                   style: const ButtonStyle(visualDensity: VisualDensity.compact),
                   segments: const [
                     ButtonSegment(value: 'today', label: Text('Today')),
-                    ButtonSegment(value: 'week', label: Text('Week')),
+                    ButtonSegment(value: 'month', label: Text('Month')),
                   ],
                   selected: {_period},
                   onSelectionChanged: (s) { setState(() => _period = s.first); _load(); },
@@ -204,9 +204,20 @@ class _MyStatsState extends State<_MyStats> {
             else if (d == null)
               const Text('Stats unavailable offline.', style: TextStyle(color: Colors.black54))
             else ...[
-              // Hero: total money in hand right now.
+              // Hero: total money in hand right now (cumulative, not period-scoped).
               Text('₹$inHand', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: Brand.maroon)),
               const Text('in hand', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 10),
+              // Period summary (scoped by the Today/Month toggle).
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: Brand.greenTint, borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  '${_period == 'month' ? 'This month' : 'Today'}: ₹${d['revenue'] ?? 0} revenue · ${d['sales_count'] ?? 0} sales',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Brand.green),
+                ),
+              ),
               const SizedBox(height: 12),
               GridView.count(
                 crossAxisCount: 2,

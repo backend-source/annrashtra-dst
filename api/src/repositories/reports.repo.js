@@ -5,11 +5,11 @@ const n = (v) => Number(v) || 0;
 // All aggregates for the overview, scoped to a set of promoter ids. An empty set
 // (e.g. a supervisor with no promoters) yields zeros — ANY('{}') matches nothing.
 export async function overview(ids) {
-  const [revToday, revWeek, unitsWeek, leadAgg, checkins, inRadius, pts, series, board] = await Promise.all([
+  const [revToday, revMonth, unitsMonth, leadAgg, checkins, inRadius, pts, series, board] = await Promise.all([
     query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id = ANY($1) AND created_at::date = current_date`, [ids]),
-    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id = ANY($1) AND created_at > now() - interval '7 days'`, [ids]),
+    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id = ANY($1) AND date_trunc('month', created_at) = date_trunc('month', current_date)`, [ids]),
     query(`SELECT coalesce(sum(si.qty),0) v FROM sale_items si JOIN sales s ON s.id = si.sale_id
-           WHERE s.promoter_id = ANY($1) AND s.created_at > now() - interval '7 days'`, [ids]),
+           WHERE s.promoter_id = ANY($1) AND date_trunc('month', s.created_at) = date_trunc('month', current_date)`, [ids]),
     query(`SELECT count(*)::int total,
                   count(*) FILTER (WHERE verify_status IN ('whatsapp_confirmed','otp_verified'))::int verified,
                   count(*) FILTER (WHERE status = 'converted')::int converted
@@ -31,8 +31,8 @@ export async function overview(ids) {
   return {
     kpis: {
       revenue_today: n(revToday.rows[0].v),
-      revenue_week: n(revWeek.rows[0].v),
-      units_week: n(unitsWeek.rows[0].v),
+      revenue_month: n(revMonth.rows[0].v),
+      units_month: n(unitsMonth.rows[0].v),
       leads_total: leads.total,
       leads_verified: leads.verified,
       leads_converted: leads.converted,
@@ -47,13 +47,22 @@ export async function overview(ids) {
   };
 }
 
-// Promoter's own dashboard: stock-in-hand (live snapshot), and leads / cash /
-// UPI in hand / points for the chosen period (today | week). "In hand" = period
-// sales by mode minus what's already been handed over in that period.
+// Build the IST date predicate for a period. 'today' = the IST business day,
+// 'month' = the calendar month to date. (Week kept as a fallback.)
+function periodPredicate(period, col = 'created_at') {
+  if (period === 'month') return `date_trunc('month', ${col}) = date_trunc('month', current_date)`;
+  if (period === 'week') return `${col} > now() - interval '7 days'`;
+  return `${col}::date = current_date`;
+}
+
+// Promoter's own dashboard. The period (today | month) scopes the ACTIVITY counts
+// — leads, sales, revenue, points. "Cash / UPI in hand" is a point-in-time balance
+// = ALL sales by mode minus ALL handovers (the money physically held right now),
+// so handing over an earlier day's cash can never drag a period's in-hand negative.
 export async function promoterSummary(promoterId, period) {
-  const salesP = period === 'today' ? `created_at::date = current_date` : `created_at > now() - interval '7 days'`;
-  const dayP = period === 'today' ? `day = current_date` : `day > current_date - 7`;
-  const [stock, leads, cashSales, upiSales, handed, pts] = await Promise.all([
+  const p = period === 'month' ? 'month' : period === 'week' ? 'week' : 'today';
+  const salesP = periodPredicate(p, 'created_at');
+  const [stock, agg, inhand, pts] = await Promise.all([
     query(
       `SELECT p.sku, p.name,
               COALESCE(
@@ -61,19 +70,39 @@ export async function promoterSummary(promoterId, period) {
                 (SELECT closing FROM inventory WHERE promoter_id=$1 AND product_id=p.id AND day<current_date ORDER BY day DESC LIMIT 1),
                 0) AS in_hand
        FROM products p WHERE p.active = true ORDER BY p.sku`, [promoterId]),
-    query(`SELECT count(*)::int v FROM leads WHERE promoter_id=$1 AND ${salesP}`, [promoterId]),
-    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id=$1 AND payment_mode='cash' AND ${salesP}`, [promoterId]),
-    query(`SELECT coalesce(sum(total),0) v FROM sales WHERE promoter_id=$1 AND payment_mode='upi' AND ${salesP}`, [promoterId]),
-    query(`SELECT coalesce(sum(amount),0) cash, coalesce(sum(upi_amount),0) upi FROM collections WHERE promoter_id=$1 AND ${dayP}`, [promoterId]),
+    query(`SELECT
+             (SELECT count(*) FROM leads WHERE promoter_id=$1 AND ${salesP}) AS leads,
+             (SELECT count(*) FROM sales WHERE promoter_id=$1 AND ${salesP}) AS sales_count,
+             (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND ${salesP}) AS revenue`, [promoterId]),
+    query(`SELECT
+             (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='cash')
+               - (SELECT coalesce(sum(amount),0) FROM collections WHERE promoter_id=$1) AS cash,
+             (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='upi')
+               - (SELECT coalesce(sum(upi_amount),0) FROM collections WHERE promoter_id=$1) AS upi`, [promoterId]),
     query(`SELECT coalesce(sum(points),0) v FROM promoter_points WHERE promoter_id=$1 AND ${salesP}`, [promoterId]),
   ]);
   return {
     stock_by_sku: stock.rows.map((r) => ({ sku: r.sku, name: r.name, in_hand: n(r.in_hand) })),
-    leads: leads.rows[0].v,
-    cash_in_hand: Math.max(0, n(cashSales.rows[0].v) - n(handed.rows[0].cash)),
-    upi_in_hand: Math.max(0, n(upiSales.rows[0].v) - n(handed.rows[0].upi)),
+    leads: n(agg.rows[0].leads),
+    sales_count: n(agg.rows[0].sales_count),
+    revenue: n(agg.rows[0].revenue),
+    cash_in_hand: Math.max(0, n(inhand.rows[0].cash)),
+    upi_in_hand: Math.max(0, n(inhand.rows[0].upi)),
     points: n(pts.rows[0].v),
   };
+}
+
+// Current cumulative cash & UPI a promoter holds (all sales by mode minus all
+// handovers). Used to block handing over more than they have (#8).
+export async function currentBalance(promoterId) {
+  const { rows } = await query(
+    `SELECT
+       (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='cash')
+         - (SELECT coalesce(sum(amount),0) FROM collections WHERE promoter_id=$1) AS cash,
+       (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='upi')
+         - (SELECT coalesce(sum(upi_amount),0) FROM collections WHERE promoter_id=$1) AS upi`,
+    [promoterId]);
+  return { cash: Math.max(0, n(rows[0].cash)), upi: Math.max(0, n(rows[0].upi)) };
 }
 
 // ---- CSV export row sources (inclusive date range on the IST business day) ----

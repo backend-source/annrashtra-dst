@@ -65,6 +65,17 @@ export async function insertAllocation(client, a) {
   return rows[0] || null;
 }
 
+// Has this promoter already had an opening allocation for this product? Opening is
+// a one-time event (#6); further stock must come through refills.
+export async function hasAllocation(client, { promoter_id, product_id }) {
+  const { rows } = await client.query(
+    `SELECT 1 FROM stock_transactions
+     WHERE promoter_id = $1 AND product_id = $2 AND type = 'allocation' LIMIT 1`,
+    [promoter_id, product_id],
+  );
+  return rows.length > 0;
+}
+
 export async function addOpening(client, { promoter_id, product_id, qty }) {
   await client.query(
     `INSERT INTO inventory (promoter_id, product_id, opening, day)

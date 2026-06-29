@@ -22,10 +22,24 @@ function amounts(input) {
 
 // Promoter records a cash + UPI handover. Several are allowed per day (#3) — the
 // only uniqueness left is client_uuid (offline replay safety), handled in the repo.
+// A promoter can't hand over more cash or UPI than they currently hold (#8); the
+// two are checked independently so neither balance can go negative. A replay
+// (same client_uuid) skips the check so a re-sync of an accepted handover is safe.
 export async function create(input) {
   if (!input.promoter_id) throw new ApiError(400, 'promoter_id is required');
   const { amount, upi_amount } = amounts(input);
   if (amount + upi_amount <= 0) throw new ApiError(400, 'enter a cash or UPI amount');
+
+  if (input.client_uuid) {
+    const existing = await repo.findByClientUuid(input.client_uuid);
+    if (existing) return existing; // idempotent replay — already recorded
+  }
+
+  const bal = await repo.currentBalance(input.promoter_id);
+  const eps = 0.009; // currency rounding tolerance
+  if (amount > bal.cash + eps) throw new ApiError(400, `Cash in hand is only ₹${bal.cash} — can't hand over ₹${amount}`);
+  if (upi_amount > bal.upi + eps) throw new ApiError(400, `UPI in hand is only ₹${bal.upi} — can't hand over ₹${upi_amount}`);
+
   return repo.insert({ promoter_id: input.promoter_id, amount, upi_amount, note: input.note, client_uuid: input.client_uuid });
 }
 

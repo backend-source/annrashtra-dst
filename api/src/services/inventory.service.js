@@ -18,10 +18,16 @@ export async function recordOpening(input) {
 
   return withTransaction(async (client) => {
     await repo.ensureTodayRow(client, { promoter_id: input.promoter_id, product_id: input.product_id });
+    // Opening is a one-time event (#6). If one already exists and this isn't a
+    // replay of that same allocation, reject — top-ups go through refills.
+    const already = await repo.hasAllocation(client, { promoter_id: input.promoter_id, product_id: input.product_id });
     const txn = await repo.insertAllocation(client, {
       promoter_id: input.promoter_id, product_id: input.product_id,
       qty: input.qty, client_uuid: input.client_uuid,
     });
+    if (already && txn) {
+      throw new ApiError(409, 'Opening stock is already set for this product. Use a refill to add more.');
+    }
     if (txn) {
       await repo.addOpening(client, { promoter_id: input.promoter_id, product_id: input.product_id, qty: input.qty });
     }

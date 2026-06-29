@@ -14,6 +14,26 @@ export async function insert(c) {
   return rows[0];
 }
 
+// Look up a handover by its offline client_uuid (to detect a replay before we run
+// the balance check, so a re-sync of an already-recorded handover stays idempotent).
+export async function findByClientUuid(clientUuid) {
+  const { rows } = await query(`SELECT * FROM collections WHERE client_uuid = $1`, [clientUuid]);
+  return rows[0] || null;
+}
+
+// Cumulative cash & UPI the promoter currently holds (all sales by mode minus all
+// handovers), never negative. Used to block over-handovers (#8).
+export async function currentBalance(promoterId) {
+  const { rows } = await query(
+    `SELECT
+       (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='cash')
+         - (SELECT coalesce(sum(amount),0) FROM collections WHERE promoter_id=$1) AS cash,
+       (SELECT coalesce(sum(total),0) FROM sales WHERE promoter_id=$1 AND payment_mode='upi')
+         - (SELECT coalesce(sum(upi_amount),0) FROM collections WHERE promoter_id=$1) AS upi`,
+    [promoterId]);
+  return { cash: Math.max(0, Number(rows[0].cash) || 0), upi: Math.max(0, Number(rows[0].upi) || 0) };
+}
+
 export async function getForUpdate(client, id) {
   const { rows } = await client.query('SELECT * FROM collections WHERE id = $1 FOR UPDATE', [id]);
   return rows[0] || null;

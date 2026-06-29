@@ -96,11 +96,8 @@ export async function updateLeadState(id, { verify_status, status }) {
         promoter_id: lead.promoter_id, points: POINTS.lead_verified, reason: 'lead_verified', lead_id: id,
       });
     }
-    if (status === 'converted' && lead.status !== 'converted') {
-      await pointsRepo.awardForLead(client, {
-        promoter_id: lead.promoter_id, points: POINTS.lead_converted, reason: 'lead_converted', lead_id: id,
-      });
-    }
+    // Conversion no longer awards a flat bonus (#10) — reward points now come from
+    // the packets actually sold, credited on the sale itself.
     return updated;
   });
 }

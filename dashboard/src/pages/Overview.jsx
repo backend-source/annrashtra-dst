@@ -69,8 +69,8 @@ export default function Overview() {
       <p className="muted">{scopeLabel}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
-        <Kpi label="Revenue · this week" value={inr(k.revenue_week)} sub={`${inr(k.revenue_today)} today`} tone="money" />
-        <Kpi label="Units sold · week" value={k.units_week} tone="plain" />
+        <Kpi label="Revenue · this month" value={inr(k.revenue_month)} sub={`${inr(k.revenue_today)} today`} tone="money" />
+        <Kpi label="Units sold · month" value={k.units_month} tone="plain" />
         <Kpi label="Leads" value={k.leads_total} sub={`${k.leads_verified} verified · ${k.leads_converted} converted`} tone="accent" />
         <Kpi label="Conversion" value={`${k.conversion_rate}%`} tone="plain" />
         <Kpi label="Check-ins today" value={k.checkins_today} tone="brand" />
